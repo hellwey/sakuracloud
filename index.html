@@ -2,125 +2,160 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>NEON_RUNNER_PRO</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VOID_RUNNER_ULTRA</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        #ui { position: absolute; top: 20px; color: #fff; font-family: 'Arial Black'; font-size: 40px; z-index: 10; pointer-events: none; text-shadow: 0 0 20px #ff00ff; }
+        #ui { position: absolute; top: 20px; color: #fff; font-family: 'Arial Black'; font-size: 50px; z-index: 10; pointer-events: none; text-shadow: 0 0 20px #0ff; transition: 0.1s; }
+        #best { position: absolute; top: 80px; color: #555; font-family: monospace; font-size: 14px; z-index: 10; }
     </style>
 </head>
 <body>
 
 <div id="ui">0</div>
+<div id="best">BEST: 0</div>
 
 <script>
 const config = {
     type: Phaser.AUTO,
     width: 800, height: 400,
-    backgroundColor: '#050505',
-    physics: { default: 'arcade', arcade: { gravity: { y: 1200 }, debug: false } },
+    backgroundColor: '#020202',
+    physics: { default: 'arcade', arcade: { gravity: { y: 1600 }, debug: false } },
     scene: { preload, create, update }
 };
 
 const game = new Phaser.Game(config);
 let player, platforms, obstacles, cursors, emitter;
-let score = 0, gameSpeed = 400, canDoubleJump = false;
+let score = 0, bestScore = localStorage.getItem('runnerBest') || 0;
+let gameSpeed = 450, jumpCount = 0;
 
 function preload() {
     let g = this.make.graphics({x: 0, y: 0, add: false});
     
-    // Игрок (светящийся куб)
-    g.fillStyle(0x00ffff).fillRect(0, 0, 30, 30);
-    g.generateTexture('player', 30, 30);
+    // Кубик (Игрок)
+    g.clear().fillStyle(0x00ffff).fillRect(0, 0, 32, 32);
+    g.lineStyle(2, 0xffffff).strokeRect(0, 0, 32, 32);
+    g.generateTexture('player', 32, 32);
     
-    // Земля
-    g.clear().fillStyle(0x333333).fillRect(0, 0, 800, 50);
-    g.generateTexture('ground', 800, 50);
+    // Земля (Неоновая линия)
+    g.clear().fillStyle(0x111111).fillRect(0, 0, 800, 10);
+    g.lineStyle(2, 0x00ffff).moveTo(0, 0).lineTo(800, 0).strokePath();
+    g.generateTexture('ground', 800, 10);
     
-    // Шип (препятствие)
-    g.clear().fillStyle(0xff0055);
-    g.fillTriangle(0, 30, 15, 0, 30, 30);
-    g.generateTexture('spike', 30, 30);
+    // Шип
+    g.clear().fillStyle(0xff0055).fillTriangle(0, 32, 16, 0, 32, 32);
+    g.generateTexture('spike', 32, 32);
 
-    // Партиклы
-    g.clear().fillStyle(0x00ffff).fillCircle(2, 2, 2);
-    g.generateTexture('dot', 4, 4);
+    // Летающая пила
+    g.clear().lineStyle(3, 0xffffff).strokeCircle(16, 16, 14);
+    g.lineStyle(2, 0xff0055).moveTo(0, 16).lineTo(32, 16).moveTo(16, 0).lineTo(16, 32).strokePath();
+    g.generateTexture('saw', 32, 32);
+
+    // Искры
+    g.clear().fillStyle(0xffffff).fillCircle(2, 2, 2);
+    g.generateTexture('spark', 4, 4);
 }
 
 function create() {
-    // Земля (статичная группа)
+    document.getElementById('best').innerText = `BEST: ${bestScore}`;
     platforms = this.physics.add.staticGroup();
-    platforms.create(400, 380, 'ground').refreshBody();
+    platforms.create(400, 390, 'ground').refreshBody();
 
-    // Игрок
-    player = this.physics.add.sprite(100, 300, 'player');
+    player = this.physics.add.sprite(150, 300, 'player');
     player.setCollideWorldBounds(true);
     
-    // Частицы за игроком
-    emitter = this.add.particles(0, 0, 'dot', {
-        speed: 100, scale: { start: 1, end: 0 }, lifespan: 400, blendMode: 'ADD'
+    emitter = this.add.particles(0, 0, 'spark', {
+        speed: 150, scale: { start: 1, end: 0 }, lifespan: 500, blendMode: 'ADD', frequency: 50
     });
     emitter.startFollow(player);
 
-    // Группа препятствий
     obstacles = this.physics.add.group();
 
-    // Коллизии
-    this.physics.add.collider(player, platforms);
-    this.physics.add.overlap(player, obstacles, hitObstacle, null, this);
+    this.physics.add.collider(player, platforms, () => { jumpCount = 0; });
+    this.physics.add.overlap(player, obstacles, die, null, this);
 
     // Управление
-    cursors = this.input.keyboard.createCursorKeys();
+    this.input.keyboard.on('keydown-SPACE', jump, this);
     this.input.on('pointerdown', jump, this);
 
-    // Таймер спавна шипов
-    this.spawnTimer = this.time.addEvent({
-        delay: 1500, callback: spawnSpike, callbackScope: this, loop: true
-    });
+    // Цикл спавна (адаптивный тайминг)
+    this.nextObstacle = 0;
 }
 
-function spawnSpike() {
-    let spike = obstacles.create(900, 340, 'spike');
-    spike.setVelocityX(-gameSpeed);
-    spike.body.setAllowGravity(false);
-}
-
-function jump() {
-    if (player.body.touching.down) {
-        player.setVelocityY(-550);
-        canDoubleJump = true;
-    } else if (canDoubleJump) {
-        player.setVelocityY(-450);
-        canDoubleJump = false;
-        this.cameras.main.shake(100, 0.01); // Тряска при дабл-джампе
+function spawnObstacle() {
+    const r = Math.random();
+    
+    if (r < 0.6) {
+        // Спавним шипы (одиночные, двойные или тройные)
+        const count = Phaser.Math.Between(1, 3);
+        for(let i = 0; i < count; i++) {
+            let s = obstacles.create(850 + (i * 33), 360, 'spike');
+            s.setVelocityX(-gameSpeed);
+            s.body.setAllowGravity(false);
+        }
+    } else {
+        // Спавним летающую пилу (нужно либо пригнуться, либо перепрыгнуть)
+        let height = Math.random() > 0.5 ? 260 : 330;
+        let saw = obstacles.create(900, height, 'saw');
+        saw.setVelocityX(-gameSpeed * 1.2);
+        saw.setAngularVelocity(400);
+        saw.body.setAllowGravity(false);
     }
 }
 
-function update() {
-    if (cursors.space.isDown && player.body.touching.down) jump.call(this);
-
-    // Удаление улетевших шипов
-    obstacles.getChildren().forEach(spike => {
-        if (spike.x < -50) spike.destroy();
-    });
-
-    // Увеличение сложности
-    score += 1;
-    gameSpeed += 0.1;
-    document.getElementById('ui').innerText = Math.floor(score / 10);
-    
-    // Ускоряем спавн
-    this.spawnTimer.delay = Math.max(600, 1500 - (score / 50));
+function jump() {
+    if (jumpCount < 3) { // Тройной прыжок
+        player.setVelocityY(-520);
+        jumpCount++;
+        this.cameras.main.shake(100, 0.005);
+        
+        // Эффект вспышки при прыжке
+        let flash = this.add.circle(player.x, player.y, 40, 0x00ffff, 0.5);
+        this.tweens.add({ targets: flash, scale: 2, alpha: 0, duration: 200, onComplete: () => flash.destroy() });
+    }
 }
 
-function hitObstacle() {
+function update(time) {
+    // Бесконечный спавн по таймингу
+    if (time > this.nextObstacle) {
+        spawnObstacle.call(this);
+        // Интервал уменьшается с ростом скорости
+        let delay = Phaser.Math.Between(800, 1800) - (score / 10);
+        this.nextObstacle = time + Math.max(500, delay);
+    }
+
+    // Удаление лишнего
+    obstacles.getChildren().forEach(obj => {
+        if (obj.x < -100) obj.destroy();
+    });
+
+    // Рост сложности
+    score += 1;
+    gameSpeed += 0.15;
+    
+    const displayScore = Math.floor(score / 10);
+    document.getElementById('ui').innerText = displayScore;
+    
+    // Эффект инверсии на каждые 1000 очков
+    if (displayScore % 100 === 0 && displayScore > 0) {
+        document.getElementById('ui').style.color = '#ff0055';
+    } else {
+        document.getElementById('ui').style.color = '#00ffff';
+    }
+}
+
+function die() {
     this.physics.pause();
     player.setTint(0xff0000);
-    this.cameras.main.flash(500, 255, 0, 0);
+    this.cameras.main.shake(500, 0.02);
     
-    setTimeout(() => {
+    const finalScore = Math.floor(score / 10);
+    if(finalScore > bestScore) localStorage.setItem('runnerBest', finalScore);
+    
+    this.time.delayedCall(1000, () => {
         location.reload();
-    }, 1000);
+    });
 }
 </script>
 </body>
