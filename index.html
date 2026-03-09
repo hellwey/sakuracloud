@@ -3,45 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WOLF_CHAOS_STREET</title>
+    <title>WOLF_CHAOS_V2</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; font-family: 'Arial Black', sans-serif; touch-action: none; }
         #ui { position: absolute; width: 100%; top: 10px; display: flex; justify-content: space-around; z-index: 10; pointer-events: none; }
-        .box { background: #000; border: 2px solid #0f0; padding: 10px; color: #0f0; text-align: center; min-width: 120px; box-shadow: 0 0 15px #0f0; }
-        #news-box { position: absolute; top: 100px; left: 50%; transform: translateX(-50%); width: 80%; text-align: center; color: #fff; font-size: 20px; background: rgba(0,0,255,0.5); padding: 10px; border: 2px solid #fff; display: none; z-index: 20; }
-        #ad-banner { position: absolute; bottom: 150px; left: 10px; width: 150px; height: 100px; background: #ff0; border: 3px solid #f0f; color: #000; font-size: 12px; padding: 5px; z-index: 5; animation: blink 0.5s infinite; display: none; }
-        @keyframes blink { 50% { opacity: 0.7; } }
-        #controls { position: absolute; bottom: 10px; width: 100%; display: flex; justify-content: center; gap: 10px; padding: 10px; box-sizing: border-box; }
+        .box { background: #000; border: 2px solid #0f0; padding: 10px; color: #0f0; text-align: center; min-width: 100px; box-shadow: 0 0 10px #0f0; }
+        #news-box { position: absolute; top: 100px; left: 50%; transform: translateX(-50%); width: 85%; text-align: center; color: #fff; font-size: 18px; background: rgba(255,0,0,0.6); border: 2px solid #fff; display: none; z-index: 20; padding: 10px; box-shadow: 0 0 20px #f00; }
+        #controls { position: absolute; bottom: 10px; width: 100%; display: flex; justify-content: center; gap: 8px; padding: 5px; }
         .col { display: flex; flex-direction: column; gap: 5px; flex: 1; }
-        .btn { padding: 15px 5px; font-weight: bold; cursor: pointer; border: none; border-radius: 5px; color: #fff; text-transform: uppercase; font-size: 14px; }
-        .buy { background: #00ff00; color: #000; }
-        .sell { background: #ff0000; }
-        #prestige { position: absolute; left: 10px; top: 10px; color: #fff; font-size: 10px; opacity: 0.5; }
+        .btn { padding: 18px 2px; font-weight: bold; border: none; border-radius: 4px; color: #fff; text-transform: uppercase; font-size: 13px; }
+        .buy { background: #00cc44; }
+        .sell { background: #cc2200; }
+        #prestige { position: absolute; left: 10px; top: 10px; color: #555; font-size: 9px; }
     </style>
 </head>
 <body>
 
-<div id="prestige">RANK: JUNIOR BROKER</div>
+<div id="prestige">RANK: BROKER</div>
 <div id="ui">
-    <div class="box">USD<br><span id="cash">$1000</span></div>
-    <div class="box">RATE<br><span id="rate">100.0</span></div>
-    <div class="box">ASSETS<br><span id="assets">0</span></div>
+    <div class="box">$<br><span id="cash">1000</span></div>
+    <div class="box">RATE<br><span id="rate">100</span></div>
+    <div class="box">UNIT<br><span id="assets">0</span></div>
 </div>
 
-<div id="news-box">BREAKING...</div>
-<div id="ad-banner">🔥 КУПИ КУРСЫ УСПЕХА! 🔥<br>БЕСПЛАТНО!</div>
+<div id="news-box">MARKET CRASH!</div>
 
 <div id="controls">
     <div class="col">
-        <button class="btn buy" onclick="trade('buy', 0.25)">Buy 25%</button>
-        <button class="btn buy" onclick="trade('buy', 0.5)">Buy 50%</button>
-        <button class="btn buy" onclick="trade('buy', 1.0)">Buy ALL IN</button>
+        <button class="btn buy" onclick="trade('buy', 0.25)">25%</button>
+        <button class="btn buy" onclick="trade('buy', 0.5)">50%</button>
+        <button class="btn buy" onclick="trade('buy', 1.0)">ALL IN</button>
     </div>
     <div class="col">
-        <button class="btn sell" onclick="trade('sell', 0.25)">Sell 25%</button>
-        <button class="btn sell" onclick="trade('sell', 0.5)">Sell 50%</button>
-        <button class="btn sell" onclick="trade('sell', 1.0)">Sell ALL IN</button>
+        <button class="btn sell" onclick="trade('sell', 0.25)">25%</button>
+        <button class="btn sell" onclick="trade('sell', 0.5)">50%</button>
+        <button class="btn sell" onclick="trade('sell', 1.0)">ALL OUT</button>
     </div>
 </div>
 
@@ -49,52 +46,55 @@
 const config = {
     type: Phaser.AUTO,
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: 800, height: 450 },
-    backgroundColor: '#050505',
+    backgroundColor: '#030303',
     scene: { create, update }
 };
 
 const game = new Phaser.Game(config);
-let cash = 1000, assets = 0, rate = 100.0, history = [100], graph, trend = 0;
+let cash = 1000, assets = 0, rate = 100.0, history = [100], graph, trend = 0, targetTrend = 0;
 
 function create() {
     graph = this.add.graphics();
-    this.time.addEvent({ delay: 400, callback: tick, loop: true });
-    this.time.addEvent({ delay: 6000, callback: randomEvent, loop: true });
+    this.time.addEvent({ delay: 350, callback: tick, loop: true });
+    this.time.addEvent({ delay: 5000, callback: randomEvent, loop: true });
 }
 
 function randomEvent() {
     const events = [
-        { msg: "ELON BOUGHT THE DIP! 🚀", v: 25, color: "#0f0" },
-        { msg: "WORLD WAR 3? ☢️", v: -40, color: "#f00" },
-        { msg: "FREE MONEY GLITCH FOUND! 💸", v: 15, color: "#ff0" },
-        { msg: "FED PRINTS $1 TRILLION 🏦", v: 20, color: "#0ff" },
-        { msg: "INTERNET DOWN IN CHINA 🔌", v: -15, color: "#f0f" },
-        { msg: "BITCOIN IS NOW LEGAL TENDER 💎", v: 30, color: "#0f0" },
-        { msg: "ALIEN INVASION (MARKET PANIC) 🛸", v: -50, color: "#f00" }
+        { msg: "MEME COIN PUMP! 🐕", v: 35, c: "#ff0" },
+        { msg: "FED HIKE RATES 📉", v: -25, c: "#f00" },
+        { msg: "SYSTEM ERROR 0x001 👾", v: -50, c: "#fff" },
+        { msg: "OIL DISCOVERED 🛢️", v: 20, c: "#0f0" },
+        { msg: "WAR IN SPACE 🛸", v: -30, c: "#f0f" },
+        { msg: "NEW VIRUS DETECTED 🦠", v: -15, c: "#555" },
+        { msg: "ELON BOUGHT TWITTER 2 🐦", v: 45, c: "#0ff" },
+        { msg: "STIMULUS CHECKS 💵", v: 15, c: "#0f0" },
+        { msg: "TAX SEASON 🧾", v: -10, c: "#f80" }
     ];
     
     let e = events[Math.floor(Math.random() * events.length)];
-    trend = e.v;
+    targetTrend = e.v;
     
     let nb = document.getElementById('news-box');
     nb.innerText = e.msg;
     nb.style.display = 'block';
-    nb.style.background = e.color + "88";
-    
-    if(Math.random() > 0.5) document.getElementById('ad-banner').style.display = 'block';
+    nb.style.borderColor = e.c;
     
     setTimeout(() => { 
         nb.style.display = 'none'; 
-        trend = 0; 
-        document.getElementById('ad-banner').style.display = 'none';
-    }, 2500);
+        targetTrend = -e.v * 0.5; // Реакция рынка после новости (коррекция)
+        setTimeout(() => targetTrend = 0, 3000);
+    }, 2000);
 }
 
 function tick() {
-    let change = (Math.random() - 0.5) * 6 + trend;
-    rate = Math.max(1, rate + change);
+    // Математика «сдерживания»: чем выше курс, тем больше шанс падения
+    let resistance = (rate - 100) * 0.05; 
+    let change = (Math.random() - 0.5) * 10 + targetTrend - resistance;
+    
+    rate = Math.max(0.5, rate + change);
     history.push(rate);
-    if(history.length > 80) history.shift();
+    if(history.length > 85) history.shift();
     updateUI();
 }
 
@@ -110,27 +110,31 @@ function trade(type, p) {
 }
 
 function updateUI() {
-    document.getElementById('cash').innerText = `$${Math.floor(cash)}`;
+    document.getElementById('cash').innerText = Math.floor(cash);
     document.getElementById('assets').innerText = assets.toFixed(2);
     document.getElementById('rate').innerText = rate.toFixed(1);
     document.getElementById('rate').style.color = rate > history[history.length-2] ? '#0f0' : '#f00';
     
     let rank = "JUNIOR";
-    if(cash > 10000) rank = "WALL STREET WOLF";
-    if(cash > 100000) rank = "MARKET MAKER";
-    if(cash > 1000000) rank = "THE LEGEND";
+    if(cash > 5000) rank = "PRO BROKER";
+    if(cash > 50000) rank = "WHALE";
+    if(cash > 500000) rank = "WOLF";
     document.getElementById('prestige').innerText = "RANK: " + rank;
 }
 
 function update() {
     graph.clear();
-    graph.lineStyle(1, 0x00ff00, 0.1);
+    // Сетка
+    graph.lineStyle(1, 0x111111, 1);
+    for(let i=0; i<10; i++) graph.moveTo(0, i*45).lineTo(800, i*45);
     for(let i=0; i<20; i++) graph.moveTo(i*40, 0).lineTo(i*40, 450);
     graph.strokePath();
 
-    graph.lineStyle(4, trend > 0 ? 0x00ff00 : (trend < 0 ? 0xff0000 : 0xffffff), 1);
+    // График
+    let isUp = rate > history[0];
+    graph.lineStyle(3, targetTrend > 0 ? 0x00ff00 : (targetTrend < 0 ? 0xff0000 : 0x00ffff), 1);
     graph.beginPath();
-    let step = 800 / 80;
+    let step = 800 / 85;
     history.forEach((v, i) => {
         let y = 380 - (v * 1.5);
         if(i === 0) graph.moveTo(i * step, y); else graph.lineTo(i * step, y);
