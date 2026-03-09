@@ -2,55 +2,57 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>NEON_RIDER_SCHOOL_EDITION</title>
+    <title>NEON_RIDER_V2_HARDCORE</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        #score-ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #0ff; font-family: 'Arial Black'; font-size: 40px; z-index: 10; pointer-events: none; text-shadow: 0 0 10px #0ff; }
-        #best-ui { position: absolute; top: 70px; width: 100%; text-align: center; color: #f0f; font-family: monospace; font-size: 18px; z-index: 10; }
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #0ff; font-family: 'Arial Black'; z-index: 10; pointer-events: none; }
+        #score { font-size: 50px; text-shadow: 0 0 15px #0ff; }
+        #best { font-size: 15px; color: #f0f; }
     </style>
 </head>
 <body>
 
-<div id="score-ui">0</div>
-<div id="best-ui">BEST: 0</div>
+<div id="ui">
+    <div id="score">0</div>
+    <div id="best">BEST: 0</div>
+</div>
 
 <script>
 const config = {
     type: Phaser.AUTO,
     width: 800, height: 600,
-    backgroundColor: '#050505',
-    physics: { default: 'arcade', arcade: { gravity: { y: 1200 } } },
+    backgroundColor: '#020202',
+    physics: { default: 'arcade', arcade: { gravity: { y: 1500 } } },
     scene: { preload, create, update }
 };
 
 const game = new Phaser.Game(config);
-let player, ground, cursors;
+let player, ground, cursors, obstacles;
 let score = 0, bestScore = localStorage.getItem('riderBest') || 0;
-let points = [], nextX = 0;
-let isRotating = false;
+let points = [{x: 0, y: 500}, {x: 200, y: 500}];
+let nextX = 400, isRotating = false;
 
 function preload() {
     let g = this.make.graphics({x: 0, y: 0, add: false});
-    // Мотик (простой прямоугольник для физики)
-    g.fillStyle(0x00ffff).fillRect(0, 0, 40, 15);
-    g.generateTexture('bike', 40, 15);
+    // Байк
+    g.fillStyle(0x00ffff).fillRect(0, 0, 40, 10);
+    g.generateTexture('bike', 40, 10);
+    // Пила
+    g.clear().lineStyle(2, 0xff0000).strokeCircle(15, 15, 15);
+    g.moveTo(0, 15).lineTo(30, 15).moveTo(15, 0).lineTo(15, 30).strokePath();
+    g.generateTexture('saw', 30, 30);
 }
 
 function create() {
-    document.getElementById('best-ui').innerText = `BEST: ${bestScore}`;
+    document.getElementById('best').innerText = `BEST: ${bestScore}`;
     
-    // Игрок (наш "байк")
-    player = this.physics.add.sprite(100, 100, 'bike');
-    player.setCollideWorldBounds(false);
-    player.setDragX(100);
-    player.setMaxVelocity(600, 1000);
+    player = this.physics.add.sprite(100, 300, 'bike');
+    player.setDragX(50).setMaxVelocity(700, 1000);
 
-    // Начальная трасса
     ground = this.add.graphics();
-    for(let i=0; i<20; i++) addSegment();
+    obstacles = this.physics.add.group();
 
-    // Камера
     this.cameras.main.startFollow(player, true, 0.1, 0.1, -200, 100);
     this.cameras.main.setZoom(0.8);
 
@@ -60,75 +62,82 @@ function create() {
 }
 
 function addSegment() {
-    let prevY = points.length > 0 ? points[points.length-1].y : 500;
-    let newY = prevY + (Math.random() * 200 - 100);
-    newY = Phaser.Math.Clamp(newY, 300, 580);
+    let last = points[points.length-1];
+    let type = Math.random();
+    let newX = last.x + 150;
+    let newY = last.y + (Math.random() * 160 - 80);
+    newY = Phaser.Math.Clamp(newY, 250, 550);
+
+    // Ловушка
+    if (type > 0.85) {
+        let saw = obstacles.create(newX, newY - 40, 'saw');
+        saw.body.setAllowGravity(false).setAngularVelocity(300);
+    }
     
-    // Создаем "трамплин" или "яму"
-    if(Math.random() > 0.8) nextX += 150; // Прыжок
-    
-    points.push({ x: nextX, y: newY });
-    nextX += 120;
+    points.push({x: newX, y: newY});
 }
 
 function update() {
-    // Газ
-    player.setVelocityX(350);
+    // Движение вперед
+    player.setVelocityX(400 + (score / 100));
 
-    // Трюки (Флипы)
+    // Трюки и Сальто
     if (cursors.space.isDown || isRotating) {
-        player.setAngularVelocity(300);
-        score += 1; // Очки за кручение
+        player.setAngularVelocity(350);
+        score += 2;
     } else {
         player.setAngularVelocity(0);
     }
 
-    // Рисуем бесконечную трассу
-    drawGround.call(this);
-
-    // Проверка падения (если байк перевернулся или улетел вниз)
-    if (player.angle > 150 || player.angle < -150) {
-        // Упрощенная проверка столкновения "головой"
-        checkGameOver();
-    }
-    
-    if (player.y > 800) checkGameOver();
-
-    // Генерация новых кусков трассы
-    if (player.x > nextX - 1000) addSegment();
-
-    // Обновление счета
-    score += Math.floor(player.body.velocity.x / 100);
-    document.getElementById('score-ui').innerText = Math.floor(score/10);
-}
-
-function drawGround() {
-    ground.clear();
-    const hue = (Math.floor(score/500) * 40) % 360;
-    ground.lineStyle(6, Phaser.Display.Color.HSLToColor(hue/360, 1, 0.5).color);
-
-    ground.beginPath();
-    ground.moveTo(points[0].x, points[0].y);
-    
-    for(let i = 1; i < points.length; i++) {
-        ground.lineTo(points[i].x, points[i].y);
-        
-        // Проверка приземления (упрощенная)
-        if (Math.abs(player.x - points[i].x) < 20) {
-            if (player.y > points[i].y - 20) {
-                player.y = points[i].y - 20;
+    // Фиксация на земле (Анти-проваливание)
+    let onGround = false;
+    for (let i = 0; i < points.length - 1; i++) {
+        let p1 = points[i], p2 = points[i+1];
+        if (player.x >= p1.x && player.x <= p2.x) {
+            let t = (player.x - p1.x) / (p2.x - p1.x);
+            let groundY = p1.y + t * (p2.y - p1.y);
+            
+            if (player.y >= groundY - 15) {
+                player.y = groundY - 15;
                 player.setVelocityY(0);
-                player.setAngle(Phaser.Math.RadToDeg(Math.atan2(points[i].y - points[i-1].y, points[i].x - points[i-1].x)));
+                let angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+                player.setRotation(angle);
+                onGround = true;
             }
         }
     }
+
+    // Смерть от падения или пил
+    if (!onGround && (player.angle > 160 || player.angle < -160)) checkGameOver();
+    if (player.y > 800) checkGameOver();
+    this.physics.add.overlap(player, obstacles, checkGameOver);
+
+    // Генерация трассы
+    if (player.x > points[points.length-1].x - 1000) addSegment();
+    
+    // Удаление старых сегментов для оптимизации
+    if (points.length > 50) points.shift();
+
+    // Отрисовка
+    drawWorld.call(this);
+    
+    score += 1;
+    document.getElementById('score').innerText = Math.floor(score/10);
+}
+
+function drawWorld() {
+    ground.clear();
+    const hue = (Math.floor(score/1000) * 60) % 360;
+    ground.lineStyle(8, Phaser.Display.Color.HSLToColor(hue/360, 1, 0.5).color);
+    ground.beginPath();
+    ground.moveTo(points[0].x, points[0].y);
+    points.forEach(p => ground.lineTo(p.x, p.y));
     ground.strokePath();
 }
 
 function checkGameOver() {
-    if(Math.floor(score/10) > bestScore) {
-        localStorage.setItem('riderBest', Math.floor(score/10));
-    }
+    let current = Math.floor(score/10);
+    if(current > bestScore) localStorage.setItem('riderBest', current);
     location.reload();
 }
 </script>
