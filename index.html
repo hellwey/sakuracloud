@@ -2,166 +2,134 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>VOID_ISAAC_ULTIMATE</title>
+    <title>NEON_RIDER_SCHOOL_EDITION</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        #game-ui { position: absolute; top: 15px; left: 15px; color: #00ffcc; font-family: 'Courier New', monospace; z-index: 10; pointer-events: none; background: rgba(0,0,0,0.5); padding: 10px; border: 1px solid #333; }
-        #item-notif { position: absolute; bottom: 50px; width: 100%; text-align: center; color: #fff; font-size: 24px; font-family: monospace; text-transform: uppercase; letter-spacing: 5px; opacity: 0; transition: 1s; }
+        #score-ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #0ff; font-family: 'Arial Black'; font-size: 40px; z-index: 10; pointer-events: none; text-shadow: 0 0 10px #0ff; }
+        #best-ui { position: absolute; top: 70px; width: 100%; text-align: center; color: #f0f; font-family: monospace; font-size: 18px; z-index: 10; }
     </style>
 </head>
 <body>
 
-<div id="game-ui">
-    <div id="hpText">❤️ STATUS: STABLE (3/3)</div>
-    <div id="modText">MOD: NONE</div>
-    <div id="roomText">DEPTH: 1</div>
-</div>
-<div id="item-notif">NEW MOD ACQUIRED</div>
+<div id="score-ui">0</div>
+<div id="best-ui">BEST: 0</div>
 
 <script>
 const config = {
     type: Phaser.AUTO,
     width: 800, height: 600,
-    backgroundColor: '#020202',
-    physics: { default: 'arcade', arcade: { gravity: { y: 0 } } },
+    backgroundColor: '#050505',
+    physics: { default: 'arcade', arcade: { gravity: { y: 1200 } } },
     scene: { preload, create, update }
 };
 
 const game = new Phaser.Game(config);
-let player, bullets, enemies, items, lastFired = 0;
-let hp = 3, room = 1, currentMod = 'NORMAL';
+let player, ground, cursors;
+let score = 0, bestScore = localStorage.getItem('riderBest') || 0;
+let points = [], nextX = 0;
+let isRotating = false;
 
 function preload() {
     let g = this.make.graphics({x: 0, y: 0, add: false});
-    // Спрайт игрока
-    g.fillStyle(0xffffff).fillCircle(10, 10, 10).generateTexture('player', 20, 20);
-    // Спрайт врага
-    g.clear().fillStyle(0xff3333).fillRect(0, 0, 18, 18).generateTexture('enemy', 18, 18);
-    // Спрайт пули
-    g.clear().fillStyle(0x00ffcc).fillCircle(4, 4, 4).generateTexture('bullet', 8, 8);
-    // Спрайт артефакта
-    g.clear().fillStyle(0xffcc00).fillStar(10, 10, 5, 10, 5).generateTexture('item', 20, 20);
+    // Мотик (простой прямоугольник для физики)
+    g.fillStyle(0x00ffff).fillRect(0, 0, 40, 15);
+    g.generateTexture('bike', 40, 15);
 }
 
 function create() {
-    player = this.physics.add.sprite(400, 300, 'player').setDrag(1200).setCollideWorldBounds(true);
+    document.getElementById('best-ui').innerText = `BEST: ${bestScore}`;
     
-    this.keys = this.input.keyboard.addKeys('W,A,S,D');
-    this.shootKeys = this.input.keyboard.createCursorKeys();
+    // Игрок (наш "байк")
+    player = this.physics.add.sprite(100, 100, 'bike');
+    player.setCollideWorldBounds(false);
+    player.setDragX(100);
+    player.setMaxVelocity(600, 1000);
 
-    bullets = this.physics.add.group({ defaultKey: 'bullet' });
-    enemies = this.physics.add.group();
-    items = this.physics.add.group();
+    // Начальная трасса
+    ground = this.add.graphics();
+    for(let i=0; i<20; i++) addSegment();
 
-    this.physics.add.overlap(bullets, enemies, (b, e) => { b.destroy(); e.destroy(); checkRoom.call(this); }, null, this);
-    this.physics.add.overlap(player, items, pickItem, null, this);
-    this.physics.add.collider(player, enemies, () => { hp -= 0.02; updateUI(); if(hp <= 0) location.reload(); });
+    // Камера
+    this.cameras.main.startFollow(player, true, 0.1, 0.1, -200, 100);
+    this.cameras.main.setZoom(0.8);
 
-    spawnRoom.call(this);
+    cursors = this.input.keyboard.createCursorKeys();
+    this.input.on('pointerdown', () => isRotating = true);
+    this.input.on('pointerup', () => isRotating = false);
 }
 
-function update(time) {
-    // Движение
-    const speed = 280;
-    player.setVelocity(0);
-    if (this.keys.A.isDown) player.setVelocityX(-speed);
-    if (this.keys.D.isDown) player.setVelocityX(speed);
-    if (this.keys.W.isDown) player.setVelocityY(-speed);
-    if (this.keys.S.isDown) player.setVelocityY(speed);
+function addSegment() {
+    let prevY = points.length > 0 ? points[points.length-1].y : 500;
+    let newY = prevY + (Math.random() * 200 - 100);
+    newY = Phaser.Math.Clamp(newY, 300, 580);
+    
+    // Создаем "трамплин" или "яму"
+    if(Math.random() > 0.8) nextX += 150; // Прыжок
+    
+    points.push({ x: nextX, y: newY });
+    nextX += 120;
+}
 
-    // Стрельба
-    if (time > lastFired) {
-        let dir = null;
-        if (this.shootKeys.left.isDown) dir = {x:-450, y:0};
-        else if (this.shootKeys.right.isDown) dir = {x:450, y:0};
-        else if (this.shootKeys.up.isDown) dir = {x:0, y:-450};
-        else if (this.shootKeys.down.isDown) dir = {x:0, y:450};
+function update() {
+    // Газ
+    player.setVelocityX(350);
 
-        if (dir) {
-            fire(this, dir, time);
-            lastFired = time + 250;
+    // Трюки (Флипы)
+    if (cursors.space.isDown || isRotating) {
+        player.setAngularVelocity(300);
+        score += 1; // Очки за кручение
+    } else {
+        player.setAngularVelocity(0);
+    }
+
+    // Рисуем бесконечную трассу
+    drawGround.call(this);
+
+    // Проверка падения (если байк перевернулся или улетел вниз)
+    if (player.angle > 150 || player.angle < -150) {
+        // Упрощенная проверка столкновения "головой"
+        checkGameOver();
+    }
+    
+    if (player.y > 800) checkGameOver();
+
+    // Генерация новых кусков трассы
+    if (player.x > nextX - 1000) addSegment();
+
+    // Обновление счета
+    score += Math.floor(player.body.velocity.x / 100);
+    document.getElementById('score-ui').innerText = Math.floor(score/10);
+}
+
+function drawGround() {
+    ground.clear();
+    const hue = (Math.floor(score/500) * 40) % 360;
+    ground.lineStyle(6, Phaser.Display.Color.HSLToColor(hue/360, 1, 0.5).color);
+
+    ground.beginPath();
+    ground.moveTo(points[0].x, points[0].y);
+    
+    for(let i = 1; i < points.length; i++) {
+        ground.lineTo(points[i].x, points[i].y);
+        
+        // Проверка приземления (упрощенная)
+        if (Math.abs(player.x - points[i].x) < 20) {
+            if (player.y > points[i].y - 20) {
+                player.y = points[i].y - 20;
+                player.setVelocityY(0);
+                player.setAngle(Phaser.Math.RadToDeg(Math.atan2(points[i].y - points[i-1].y, points[i].x - points[i-1].x)));
+            }
         }
     }
-
-    // Модификатор: Самонаводка (Homing)
-    if (currentMod === 'HOMING') {
-        bullets.getChildren().forEach(b => {
-            let target = enemies.getFirstAlive();
-            if (target) this.physics.moveToObject(b, target, 500);
-        });
-    }
-
-    // Модификатор: Орбита
-    if (currentMod === 'ORBIT') {
-        bullets.getChildren().forEach((b, i) => {
-            if (!b.angleOffset) b.angleOffset = i * 0.5;
-            b.angleOffset += 0.1;
-            b.x = player.x + Math.cos(b.angleOffset) * 80;
-            b.y = player.y + Math.sin(b.angleOffset) * 80;
-        });
-    }
-
-    enemies.getChildren().forEach(e => this.physics.moveToObject(e, player, 120 + room * 5));
+    ground.strokePath();
 }
 
-function fire(scene, dir, time) {
-    let b = bullets.create(player.x, player.y, 'bullet');
-    if (!b) return;
-
-    if (currentMod === 'SPIRAL') {
-        scene.tweens.add({
-            targets: b.body.velocity,
-            x: { from: dir.x, to: dir.y },
-            y: { from: dir.y, to: -dir.x },
-            duration: 1000,
-            yoyo: true, repeat: -1
-        });
-    } else {
-        b.setVelocity(dir.x, dir.y);
+function checkGameOver() {
+    if(Math.floor(score/10) > bestScore) {
+        localStorage.setItem('riderBest', Math.floor(score/10));
     }
-
-    if (currentMod === 'BOUNCE') {
-        b.setBounce(1).setCollideWorldBounds(true);
-        scene.time.delayedCall(3000, () => b.destroy());
-    } else {
-        scene.time.delayedCall(1500, () => b.destroy());
-    }
-}
-
-function spawnRoom() {
-    for (let i = 0; i < 3 + room; i++) {
-        let ex = Phaser.Math.Between(100, 700), ey = Phaser.Math.Between(100, 500);
-        if (Phaser.Math.Distance.Between(ex, ey, player.x, player.y) < 150) { i--; continue; }
-        enemies.create(ex, ey, 'enemy').setTint(0xff6666);
-    }
-}
-
-function checkRoom() {
-    if (enemies.countActive() === 0) {
-        room++;
-        if (Math.random() < 0.4) items.create(400, 300, 'item');
-        updateUI();
-        spawnRoom.call(this);
-    }
-}
-
-function pickItem(p, item) {
-    item.destroy();
-    const mods = ['HOMING', 'ORBIT', 'SPIRAL', 'BOUNCE'];
-    currentMod = mods[Math.floor(Math.random() * mods.length)];
-    
-    let notif = document.getElementById('item-notif');
-    notif.innerText = `ACQUIRED: ${currentMod} MOD`;
-    notif.style.opacity = '1';
-    setTimeout(() => notif.style.opacity = '0', 2000);
-    updateUI();
-}
-
-function updateUI() {
-    document.getElementById('hpText').innerText = `❤️ STATUS: ${hp <= 1 ? 'CRITICAL' : 'STABLE'} (${Math.ceil(hp)}/3)`;
-    document.getElementById('modText').innerText = `MOD: ${currentMod}`;
-    document.getElementById('roomText').innerText = `DEPTH: ${room}`;
+    location.reload();
 }
 </script>
 </body>
