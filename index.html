@@ -3,90 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WOLF OF WALL STREET: ALL-IN</title>
+    <title>WOLF_TRADER_ULTRA</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; font-family: 'Consolas', monospace; touch-action: none; }
-        #ui-overlay { position: absolute; width: 100%; top: 10px; display: flex; justify-content: space-around; z-index: 10; pointer-events: none; }
-        .box { background: rgba(0,255,0,0.1); border: 1px solid #0f0; padding: 10px; color: #0f0; text-align: center; min-width: 120px; }
-        #leaderboard { position: absolute; left: 10px; top: 80px; font-size: 12px; color: #555; }
-        #controls { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: center; gap: 20px; }
-        .trade-btn { width: 140px; height: 70px; font-size: 22px; font-weight: bold; border: none; border-radius: 5px; cursor: pointer; color: #fff; }
-        #buy { background: #00ff66; color: #000; }
-        #sell { background: #ff3300; }
-        #msg { position: absolute; top: 40%; width: 100%; text-align: center; font-size: 30px; color: #fff; opacity: 0; transition: 0.5s; }
+        #ui { position: absolute; width: 100%; top: 10px; display: flex; justify-content: space-around; z-index: 10; pointer-events: none; }
+        .box { background: rgba(0,255,0,0.05); border: 1px solid #0f0; padding: 10px; color: #0f0; text-align: center; min-width: 130px; box-shadow: 0 0 10px #0f0; }
+        #news-ticker { position: absolute; top: 100px; width: 100%; text-align: center; color: #fff; font-size: 18px; text-transform: uppercase; background: rgba(255,0,0,0.2); padding: 5px 0; opacity: 0; transition: 0.5s; }
+        #controls { position: absolute; bottom: 10px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .row { display: flex; gap: 10px; }
+        input { width: 120px; padding: 12px; background: #111; border: 1px solid #0f0; color: #0f0; text-align: center; font-size: 18px; }
+        .btn { padding: 10px 20px; font-weight: bold; cursor: pointer; border: none; border-radius: 4px; color: #fff; }
+        .buy { background: #00ff66; color: #000; }
+        .sell { background: #ff3300; }
+        .percent { background: #333; font-size: 12px; }
     </style>
 </head>
 <body>
 
-<div id="ui-overlay">
+<div id="ui">
     <div class="box">CASH<br><span id="cash">$1000</span></div>
     <div class="box">RATE<br><span id="rate">100.00</span></div>
     <div class="box">ASSETS<br><span id="assets">0</span></div>
 </div>
 
-<div id="leaderboard">TOP WOLVES:<br>1. WHALE: $1,000,000<br>2. YOU: <span id="best">$0</span></div>
-<div id="msg">MARKET PUMP! 🚀</div>
+<div id="news-ticker">BREAKING NEWS...</div>
 
 <div id="controls">
-    <button id="buy" class="trade-btn" onclick="trade('buy')">BUY ALL</button>
-    <button id="sell" class="trade-btn" onclick="trade('sell')">SELL ALL</button>
+    <div class="row">
+        <button class="btn percent" onclick="setAmount('buy', 0.25)">25%</button>
+        <button class="btn percent" onclick="setAmount('buy', 0.5)">50%</button>
+        <button class="btn percent" onclick="setAmount('buy', 1)">100%</button>
+        <input type="number" id="buy-in" placeholder="$ Сумма">
+        <button class="btn buy" onclick="trade('buy')">BUY</button>
+    </div>
+    <div class="row">
+        <button class="btn percent" onclick="setAmount('sell', 0.25)">25%</button>
+        <button class="btn percent" onclick="setAmount('sell', 0.5)">50%</button>
+        <button class="btn percent" onclick="setAmount('sell', 1)">100%</button>
+        <input type="number" id="sell-in" placeholder="Кол-во">
+        <button class="btn sell" onclick="trade('sell')">SELL</button>
+    </div>
 </div>
 
 <script>
 const config = {
     type: Phaser.AUTO,
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: 800, height: 450 },
-    backgroundColor: '#050505',
+    backgroundColor: '#020202',
     scene: { create, update }
 };
 
 const game = new Phaser.Game(config);
-let cash = 1000, assets = 0, rate = 100.0, history = [100], graph;
-let best = localStorage.getItem('wolfBestV2') || 0;
-let trend = 0; // Направление рынка
+let cash = 1000, assets = 0, rate = 100.0, history = [100], graph, trend = 0;
 
 function create() {
     graph = this.add.graphics();
-    document.getElementById('best').innerText = `$${best}`;
-    
-    // Обновление экономики
-    this.time.addEvent({ delay: 300, callback: tick, loop: true });
+    this.time.addEvent({ delay: 500, callback: tick, loop: true });
+    this.time.addEvent({ delay: 8000, callback: triggerNews, loop: true });
+}
+
+function triggerNews() {
+    const news = [
+        { t: "ELON MUSK TWEETED 🚀", v: 15 },
+        { t: "GOVERNMENT BAN ❌", v: -20 },
+        { t: "WALL STREET ADOPTION ✅", v: 10 },
+        { t: "EXCHANGE HACKED 🛡️", v: -15 },
+        { t: "MARKET MANIPULATION 📉", v: -8 },
+        { t: "NEW ALL TIME HIGH! 📈", v: 12 }
+    ];
+    let item = news[Math.floor(Math.random() * news.length)];
+    trend = item.v;
+    let ticker = document.getElementById('news-ticker');
+    ticker.innerText = item.t;
+    ticker.style.opacity = 1;
+    ticker.style.background = item.v > 0 ? 'rgba(0,255,0,0.3)' : 'rgba(255,0,0,0.3)';
+    setTimeout(() => { ticker.style.opacity = 0; trend = 0; }, 3000);
 }
 
 function tick() {
-    // Рандомный тренд (меняется раз в несколько секунд)
-    if (Math.random() > 0.9) trend = (Math.random() - 0.5) * 5;
-    
-    let volatility = 2.0;
-    let change = (Math.random() - 0.5) * volatility + trend;
-    
-    // Шанс резкого движения (Кит зашел на рынок)
-    if (Math.random() > 0.97) {
-        let pump = (Math.random() - 0.5) * 30;
-        change += pump;
-        showMsg(pump > 0 ? "MARKET PUMP! 🚀" : "MARKET DUMP! 📉");
-    }
-
-    rate = Math.max(5, rate + change); // Минимальный курс 5
+    let change = (Math.random() - 0.5) * 4 + trend;
+    rate = Math.max(2, rate + change);
     history.push(rate);
-    if (history.length > 60) history.shift();
-    
+    if (history.length > 80) history.shift();
     updateUI();
 }
 
+function setAmount(type, p) {
+    if (type === 'buy') document.getElementById('buy-in').value = Math.floor(cash * p);
+    else document.getElementById('sell-in').value = (assets * p).toFixed(4);
+}
+
 function trade(type) {
-    if (type === 'buy' && cash > 0) {
-        assets = cash / rate;
-        cash = 0;
-    } else if (type === 'sell' && assets > 0) {
-        cash = assets * rate;
-        assets = 0;
-        if (cash > best) {
-            best = Math.floor(cash);
-            localStorage.setItem('wolfBestV2', best);
-            document.getElementById('best').innerText = `$${best}`;
-        }
+    if (type === 'buy') {
+        let val = parseFloat(document.getElementById('buy-in').value);
+        if (val > 0 && cash >= val) { cash -= val; assets += val / rate; }
+    } else {
+        let val = parseFloat(document.getElementById('sell-in').value);
+        if (val > 0 && assets >= val) { assets -= val; cash += val * rate; }
     }
     updateUI();
 }
@@ -94,36 +108,22 @@ function trade(type) {
 function updateUI() {
     document.getElementById('cash').innerText = `$${Math.floor(cash)}`;
     document.getElementById('assets').innerText = assets.toFixed(4);
-    let rateEl = document.getElementById('rate');
-    rateEl.innerText = rate.toFixed(2);
-    rateEl.style.color = rate > (history[history.length-2] || 0) ? '#0f0' : '#f00';
-}
-
-function showMsg(text) {
-    let el = document.getElementById('msg');
-    el.innerText = text;
-    el.style.opacity = 1;
-    setTimeout(() => { el.style.opacity = 0; }, 1500);
+    document.getElementById('rate').innerText = rate.toFixed(2);
+    document.getElementById('rate').style.color = rate > (history[history.length-2] || 0) ? '#0f0' : '#f00';
 }
 
 function update() {
     graph.clear();
-    graph.lineStyle(2, 0x333333, 1);
-    
-    // Сетка
-    for(let i=0; i<10; i++) {
-        graph.moveTo(0, i*45).lineTo(800, i*45);
-    }
+    graph.lineStyle(1, 0x00ff00, 0.1);
+    for(let i=0; i<8; i++) graph.moveTo(0, i*60).lineTo(800, i*60);
     graph.strokePath();
 
-    // График
-    graph.lineStyle(4, rate > history[0] ? 0x00ff66 : 0xff3300, 1);
+    graph.lineStyle(3, trend > 0 ? 0x00ff00 : (trend < 0 ? 0xff0000 : 0x00ffff), 1);
     graph.beginPath();
-    let step = 800 / 60;
-    history.forEach((val, i) => {
-        let y = 400 - (val * 1.5); // Центрируем график
-        if(i === 0) graph.moveTo(i * step, y);
-        else graph.lineTo(i * step, y);
+    let step = 800 / 80;
+    history.forEach((v, i) => {
+        let y = 350 - (v * 1.2);
+        if(i === 0) graph.moveTo(i * step, y); else graph.lineTo(i * step, y);
     });
     graph.strokePath();
 }
