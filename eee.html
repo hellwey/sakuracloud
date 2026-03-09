@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌸 GLOBAL_SAKURA_CLOUD 🌸</title>
+    <style>
+        :root { --sakura: #ffb7c5; --white: #fffaff; --text: #7c585e; }
+        body { background: var(--white); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        
+        .player-card { background: white; width: 90%; max-width: 500px; margin-top: 30px; padding: 30px; border-radius: 40px; border: 4px solid var(--sakura); box-shadow: 0 15px 40px rgba(255,183,197,0.4); text-align: center; z-index: 10; }
+        
+        /* Поиск */
+        .search-box { width: 100%; padding: 12px; border: 2px solid var(--sakura); border-radius: 20px; margin-bottom: 20px; outline: none; box-sizing: border-box; }
+        
+        .upload-btn { background: var(--sakura); color: white; padding: 12px 25px; border-radius: 50px; cursor: pointer; display: inline-block; font-weight: bold; margin-bottom: 20px; transition: 0.3s; font-size: 13px; }
+        
+        audio { width: 100%; margin: 15px 0; }
+        
+        .playlist { width: 100%; max-height: 300px; overflow-y: auto; text-align: left; }
+        .track { padding: 10px 15px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; justify-content: space-between; border-radius: 10px; margin-bottom: 5px; }
+        .track:hover { background: var(--soft); color: #ff69b4; }
+        
+        /* Лепестки сакуры */
+        .petal { position: fixed; background: var(--sakura); border-radius: 150% 0 150% 0; z-index: 1; animation: fall linear infinite; opacity: 0.5; pointer-events: none; }
+        @keyframes fall { to { transform: translateY(100vh) rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div id="sakura-container"></div>
+
+<div class="player-card">
+    <h1>🌸 GLOBAL CLOUD</h1>
+    
+    <input type="text" id="searchInput" class="search-box" placeholder="Поиск трека по названию..." oninput="filterTracks()">
+    
+    <label class="upload-btn">
+        ЗАГРУЗИТЬ В ОБЛАКО ☁️
+        <input type="file" id="fileInput" accept="audio/*" style="display:none">
+    </label>
+
+    <div id="status" style="font-size: 11px; margin-bottom: 10px; color: var(--sakura);"></div>
+    <audio id="audioPlayer" controls></audio>
+
+    <div class="playlist" id="playlist">
+        </div>
+</div>
+
+<script>
+    // Массив для хранения треков (в реальности сюда будут приходить данные из Firebase)
+    let allTracks = [];
+
+    // 1. ФУНКЦИЯ ПОИСКА
+    function filterTracks() {
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        const filtered = allTracks.filter(t => t.name.toLowerCase().includes(query));
+        renderPlaylist(filtered);
+    }
+
+    // 2. ОТОБРАЖЕНИЕ ПЛЕЙЛИСТА
+    function renderPlaylist(tracks) {
+        const container = document.getElementById('playlist');
+        container.innerHTML = tracks.length ? '' : '<div style="text-align:center; opacity:0.5;">Ничего не найдено...</div>';
+        
+        tracks.forEach(track => {
+            const div = document.createElement('div');
+            div.className = 'track';
+            div.innerHTML = `<span>🎵 ${track.name}</span> <small>play</small>`;
+            div.onclick = () => {
+                document.getElementById('audioPlayer').src = track.url;
+                document.getElementById('audioPlayer').play();
+            };
+            container.appendChild(div);
+        });
+    }
+
+    // 3. ЗАГРУЗКА (Эмуляция для теста, пока ты не подключил Firebase)
+    document.getElementById('fileInput').onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        document.getElementById('status').innerText = "Загрузка: " + file.name + "...";
+        
+        // В реальном Firebase здесь будет: storage.ref().put(file).then(...)
+        const url = URL.createObjectURL(file);
+        allTracks.unshift({ name: file.name, url: url });
+        
+        setTimeout(() => {
+            document.getElementById('status').innerText = "Готово! Видно всем (демо)";
+            renderPlaylist(allTracks);
+        }, 1000);
+    };
+
+    // 4. АНИМАЦИЯ САКУРЫ
+    function createPetal() {
+        const petal = document.createElement('div');
+        petal.className = 'petal';
+        petal.style.left = Math.random() * 100 + 'vw';
+        const size = Math.random() * 10 + 10 + 'px';
+        petal.style.width = size; petal.style.height = size;
+        petal.style.animationDuration = Math.random() * 3 + 4 + 's';
+        document.getElementById('sakura-container').appendChild(petal);
+        setTimeout(() => petal.remove(), 6000);
+    }
+    setInterval(createPetal, 400);
+</script>
+
+</body>
+</html>
