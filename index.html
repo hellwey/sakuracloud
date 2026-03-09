@@ -3,15 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VOID_RUNNER_FIXED</title>
+    <title>VOID_RUNNER_BEST</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
-        #ui { position: absolute; top: 5%; width: 100%; text-align: center; color: #0ff; font-family: 'Arial Black'; font-size: 40px; z-index: 10; pointer-events: none; }
+        #ui { position: absolute; top: 5%; width: 100%; text-align: center; color: #0ff; font-family: 'Arial Black'; font-size: 45px; z-index: 10; pointer-events: none; text-shadow: 0 0 15px #0ff; }
+        #best-ui { position: absolute; top: 15%; width: 100%; text-align: center; color: rgba(0, 255, 255, 0.5); font-family: monospace; font-size: 16px; z-index: 10; pointer-events: none; }
     </style>
 </head>
 <body>
 <div id="ui">0</div>
+<div id="best-ui">BEST: 0</div>
 <script>
 const config = {
     type: Phaser.AUTO,
@@ -22,6 +24,7 @@ const config = {
 
 const game = new Phaser.Game(config);
 let player, platforms, obstacles, score = 0, gameSpeed = 500, nextSpawn = 0, jumpCount = 0;
+let bestScore = localStorage.getItem('voidRunnerBest') || 0;
 
 function preload() {
     let g = this.make.graphics({x: 0, y: 0, add: false});
@@ -31,20 +34,17 @@ function preload() {
 }
 
 function create() {
+    document.getElementById('best-ui').innerText = `BEST: ${bestScore}`;
     platforms = this.physics.add.group({ allowGravity: false, immovable: true });
     obstacles = this.physics.add.group({ allowGravity: false });
 
-    // Стартовая земля
     let start = platforms.create(150, 400, 'block');
     start.setDisplaySize(500, 400); start.refreshBody();
 
     player = this.physics.add.sprite(150, 200, 'player');
-    player.setCollideWorldBounds(false);
-
     this.physics.add.collider(player, platforms, () => { if(player.body.touching.down) jumpCount = 0; });
-    this.physics.add.overlap(player, obstacles, () => location.reload());
+    this.physics.add.overlap(player, obstacles, handleDie, null, this);
 
-    // ФИКС ТАЧА: Сразу прыгаем, игнорируем всё остальное
     this.input.on('pointerdown', jump);
     this.input.keyboard.on('keydown-SPACE', jump);
 }
@@ -59,28 +59,36 @@ function jump() {
 function update(time) {
     if (time > nextSpawn) {
         const x = 900;
-        const h = Phaser.Math.Between(320, 460); // Высота прыгает
-        const w = Phaser.Math.Between(120, 300); // Ширина разная
+        const h = Phaser.Math.Between(320, 460);
+        const w = Phaser.Math.Between(130, 350);
         
         let p = platforms.create(x, h, 'block');
         p.setDisplaySize(w, 400); p.body.updateFromDisplaySize();
         p.setVelocityX(-gameSpeed);
 
-        if (Math.random() > 0.4) {
-            let s = obstacles.create(x + Phaser.Math.Between(-w/3, w/3), h - 215, 'spike');
+        if (Math.random() > 0.45) {
+            let s = obstacles.create(x + Phaser.Math.Between(-w/4, w/4), h - 215, 'spike');
             s.setVelocityX(-gameSpeed);
         }
-        nextSpawn = time + Phaser.Math.Between(800, 1500) / (gameSpeed/500);
+        nextSpawn = time + Phaser.Math.Between(800, 1600) / (gameSpeed/500);
     }
 
     platforms.getChildren().forEach(p => { if(p.x < -200) p.destroy(); });
     obstacles.getChildren().forEach(o => { if(o.x < -200) o.destroy(); });
 
-    if (player.y > 500) location.reload();
+    if (player.y > 500) handleDie();
 
     score += 1;
-    gameSpeed += 0.04;
+    gameSpeed += 0.045;
     document.getElementById('ui').innerText = Math.floor(score / 10);
+}
+
+function handleDie() {
+    let finalScore = Math.floor(score / 10);
+    if (finalScore > bestScore) {
+        localStorage.setItem('voidRunnerBest', finalScore);
+    }
+    location.reload();
 }
 </script>
 </body>
