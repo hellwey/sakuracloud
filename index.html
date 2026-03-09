@@ -3,25 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌸 GLOBAL_SAKURA_CLOUD 🌸</title>
+    <title>🌸 SAKURA_CLOUD 🌸</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
     <style>
         :root { --sakura: #ffb7c5; --white: #fffaff; --text: #7c585e; }
-        body { background: var(--white); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
-        
-        .player-card { background: white; width: 90%; max-width: 500px; margin-top: 30px; padding: 30px; border-radius: 40px; border: 4px solid var(--sakura); box-shadow: 0 15px 40px rgba(255,183,197,0.4); text-align: center; z-index: 10; }
-        
-        /* Поиск */
+        body { background: var(--white); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow-x: hidden; }
+        .player-card { background: white; width: 90%; max-width: 500px; margin-top: 30px; padding: 30px; border-radius: 40px; border: 4px solid var(--sakura); box-shadow: 0 15px 40px rgba(255,183,197,0.4); text-align: center; z-index: 10; position: relative; }
         .search-box { width: 100%; padding: 12px; border: 2px solid var(--sakura); border-radius: 20px; margin-bottom: 20px; outline: none; box-sizing: border-box; }
-        
         .upload-btn { background: var(--sakura); color: white; padding: 12px 25px; border-radius: 50px; cursor: pointer; display: inline-block; font-weight: bold; margin-bottom: 20px; transition: 0.3s; font-size: 13px; }
-        
         audio { width: 100%; margin: 15px 0; }
-        
         .playlist { width: 100%; max-height: 300px; overflow-y: auto; text-align: left; }
-        .track { padding: 10px 15px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; justify-content: space-between; border-radius: 10px; margin-bottom: 5px; }
-        .track:hover { background: var(--soft); color: #ff69b4; }
-        
-        /* Лепестки сакуры */
+        .track { padding: 10px 15px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; justify-content: space-between; border-radius: 10px; margin-bottom: 5px; background: #fffafb; transition: 0.2s; }
+        .track:hover { background: #ffeef2; color: #ff69b4; }
         .petal { position: fixed; background: var(--sakura); border-radius: 150% 0 150% 0; z-index: 1; animation: fall linear infinite; opacity: 0.5; pointer-events: none; }
         @keyframes fall { to { transform: translateY(100vh) rotate(360deg); } }
     </style>
@@ -31,42 +26,51 @@
 <div id="sakura-container"></div>
 
 <div class="player-card">
-    <h1>🌸 GLOBAL CLOUD</h1>
-    
-    <input type="text" id="searchInput" class="search-box" placeholder="Поиск трека по названию..." oninput="filterTracks()">
+    <h1>🌸 SAKURA CLOUD</h1>
+    <input type="text" id="searchInput" class="search-box" placeholder="Поиск трека..." oninput="filterTracks()">
     
     <label class="upload-btn">
-        ЗАГРУЗИТЬ В ОБЛАКО ☁️
+        ЗАГРУЗИТЬ ТРЕК ☁️
         <input type="file" id="fileInput" accept="audio/*" style="display:none">
     </label>
 
     <div id="status" style="font-size: 11px; margin-bottom: 10px; color: var(--sakura);"></div>
     <audio id="audioPlayer" controls></audio>
-
-    <div class="playlist" id="playlist">
-        </div>
+    <div class="playlist" id="playlist">Загрузка глобального списка...</div>
 </div>
 
 <script>
-    // Массив для хранения треков (в реальности сюда будут приходить данные из Firebase)
+    // Твои ключи (уже вставлены)
+    const firebaseConfig = {
+        apiKey: "AIzaSyB3jhyTjsNMy9cuKFtqPCV9YlGpYlk-FtA",
+        authDomain: "sakura-cloud-94eff.firebaseapp.com",
+        projectId: "sakura-cloud-94eff",
+        storageBucket: "sakura-cloud-94eff.firebasestorage.app",
+        messagingSenderId: "204236140147",
+        appId: "1:204236140147:web:8af34e5392b2eceead4406"
+    };
+
+    // Старт Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const storage = firebase.storage();
     let allTracks = [];
 
-    // 1. ФУНКЦИЯ ПОИСКА
-    function filterTracks() {
-        const query = document.getElementById('searchInput').value.toLowerCase();
-        const filtered = allTracks.filter(t => t.name.toLowerCase().includes(query));
-        renderPlaylist(filtered);
+    // Слушаем изменения в базе в реальном времени
+    function loadGlobalTracks() {
+        db.collection("music").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+            allTracks = snapshot.docs.map(doc => doc.data());
+            renderPlaylist(allTracks);
+        });
     }
 
-    // 2. ОТОБРАЖЕНИЕ ПЛЕЙЛИСТА
     function renderPlaylist(tracks) {
         const container = document.getElementById('playlist');
-        container.innerHTML = tracks.length ? '' : '<div style="text-align:center; opacity:0.5;">Ничего не найдено...</div>';
-        
+        container.innerHTML = tracks.length ? '' : '<div style="text-align:center; opacity:0.5;">Облако пусто...</div>';
         tracks.forEach(track => {
             const div = document.createElement('div');
             div.className = 'track';
-            div.innerHTML = `<span>🎵 ${track.name}</span> <small>play</small>`;
+            div.innerHTML = `<span>🎵 ${track.name}</span> <small>PLAY</small>`;
             div.onclick = () => {
                 document.getElementById('audioPlayer').src = track.url;
                 document.getElementById('audioPlayer').play();
@@ -75,24 +79,40 @@
         });
     }
 
-    // 3. ЗАГРУЗКА (Эмуляция для теста, пока ты не подключил Firebase)
-    document.getElementById('fileInput').onchange = (e) => {
+    function filterTracks() {
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        renderPlaylist(allTracks.filter(t => t.name.toLowerCase().includes(query)));
+    }
+
+    // Загрузка в Storage + запись ссылки в Firestore
+    document.getElementById('fileInput').onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        document.getElementById('status').innerText = "Загрузка: " + file.name + "...";
-        
-        // В реальном Firebase здесь будет: storage.ref().put(file).then(...)
-        const url = URL.createObjectURL(file);
-        allTracks.unshift({ name: file.name, url: url });
-        
-        setTimeout(() => {
-            document.getElementById('status').innerText = "Готово! Видно всем (демо)";
-            renderPlaylist(allTracks);
-        }, 1000);
+        const status = document.getElementById('status');
+        status.innerText = "Загружаю в облако Google...";
+
+        try {
+            // 1. Кладём файл в папку songs
+            const storageRef = storage.ref('songs/' + file.name);
+            await storageRef.put(file);
+            const downloadUrl = await storageRef.getDownloadURL();
+
+            // 2. Записываем инфу в базу, чтобы все увидели
+            await db.collection("music").add({
+                name: file.name,
+                url: downloadUrl,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            status.innerText = "Успешно загружено! 🌸";
+        } catch (error) {
+            status.innerText = "Ошибка! Проверь Rules в консоли Firebase.";
+            console.error(error);
+        }
     };
 
-    // 4. АНИМАЦИЯ САКУРЫ
+    // Красивые лепестки
     function createPetal() {
         const petal = document.createElement('div');
         petal.className = 'petal';
@@ -104,8 +124,8 @@
         setTimeout(() => petal.remove(), 6000);
     }
     setInterval(createPetal, 400);
+
+    loadGlobalTracks();
 </script>
-
 </body>
-
 </html>
