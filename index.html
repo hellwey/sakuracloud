@@ -3,212 +3,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🌸 SAKURA_CLOUD_V1.6 🌸</title>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <title>VOID_RUNNER_BETA</title>
     <style>
-        /* Темы оформления */
-        .theme-sakura { --sakura: #ffb7c5; --white: #fffaff; --text: #7c585e; --active: #ff69b4; --card: #ffffff; }
-        .theme-void { --sakura: #444444; --white: #0a0a0a; --text: #cccccc; --active: #888888; --card: #151515; }
-        .theme-retro { --sakura: #000080; --white: #c0c0c0; --text: #000000; --active: #0000ff; --card: #ffffff; }
-
-        :root { --delete: #ff4d4d; }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; transition: background 0.3s, color 0.3s; }
-        
-        body { background: var(--white); color: var(--text); font-family: sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
-
-        .version-tag { position: fixed; top: 10px; left: 10px; font-size: 10px; background: var(--active); color: white; padding: 3px 8px; border-radius: 10px; z-index: 100; font-weight: bold; }
-
-        .auth-bar { width: 95%; max-width: 500px; display: flex; justify-content: space-between; align-items: center; padding: 10px; margin-top: 10px; }
-        .user-avatar { width: 35px; height: 35px; border-radius: 50%; border: 2px solid var(--sakura); display: none; }
-        .auth-btn, .theme-btn { background: var(--card); border: 2px solid var(--sakura); color: var(--text); padding: 5px 15px; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: bold; }
-
-        .player-card { background: var(--card); width: 95%; max-width: 500px; margin: 10px 0 20px; padding: 25px; border-radius: 35px; border: 4px solid var(--sakura); box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; position: relative; }
-
-        input { width: 100%; padding: 12px; border: 2px solid var(--sakura); border-radius: 15px; margin-bottom: 10px; outline: none; font-size: 16px; background: var(--card); color: var(--text); }
-        .add-section { background: rgba(0,0,0,0.03); padding: 15px; border-radius: 25px; margin-bottom: 20px; border: 1px dashed var(--sakura); display: none; }
-
-        .add-btn { background: var(--sakura); color: white; padding: 15px; border-radius: 50px; cursor: pointer; border: none; font-weight: bold; width: 100%; transition: 0.2s; }
-        
-        .playlist { width: 100%; max-height: 350px; overflow-y: auto; text-align: left; }
-        .track { padding: 12px; border-radius: 15px; background: rgba(0,0,0,0.02); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border: 2px solid transparent; }
-        .track.playing { border-color: var(--active); background: rgba(255,105,180,0.1); color: var(--active); font-weight: bold; }
-        
-        .author-info { font-size: 10px; opacity: 0.6; display: block; margin-top: 2px; }
-        .track-info { flex-grow: 1; cursor: pointer; text-align: left; overflow: hidden; }
-        
-        .like-area { display: flex; align-items: center; gap: 5px; }
-        .like-btn { background: none; border: none; cursor: pointer; font-size: 16px; color: var(--text); padding: 5px; }
-        .del-btn { background: none; border: none; color: #ccc; cursor: pointer; font-size: 16px; margin-left: 5px; }
-
-        .petal { position: fixed; background: var(--sakura); border-radius: 150% 0 150% 0; z-index: 1; animation: fall linear infinite; opacity: 0.4; pointer-events: none; }
-        @keyframes fall { to { transform: translateY(100vh) rotate(360deg); } }
+        body { margin: 0; background: #0a0a0a; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+        canvas { border: 4px solid #333; box-shadow: 0 0 20px rgba(255,255,255,0.1); background: #111; max-width: 100%; max-height: 80vh; }
+        .stats { margin-bottom: 10px; font-size: 18px; color: #ff4d4d; }
+        .controls { margin-top: 10px; font-size: 12px; opacity: 0.5; }
     </style>
 </head>
-<body class="theme-sakura">
+<body>
 
-<div class="version-tag">VER 1.6 (VIBE_UPDATE)</div>
-<div id="sakura-container"></div>
-
-<div class="auth-bar">
-    <button class="theme-btn" onclick="nextTheme()">Сменить стиль ✨</button>
-    <div style="display: flex; align-items: center; gap: 10px;">
-        <img id="userImg" class="user-avatar" src="" alt="avatar">
-        <button id="authBtn" class="auth-btn" onclick="toggleAuth()">Войти</button>
-    </div>
-</div>
-
-<div class="player-card">
-    <h1 id="mainTitle">🌸 SAKURA CLOUD</h1>
-    
-    <div id="addSection" class="add-section">
-        <input type="text" id="trackName" placeholder="Название трека...">
-        <input type="text" id="trackUrl" placeholder="Прямая ссылка (.mp3)...">
-        <button class="add-btn" onclick="addTrack()">ОПУБЛИКОВАТЬ ☁️</button>
-    </div>
-
-    <input type="text" id="searchInput" placeholder="🔍 Поиск по облаку..." oninput="updateUI()">
-    <div id="trackCount" style="font-size: 11px; margin-bottom: 10px; opacity: 0.7;">Загрузка...</div>
-
-    <audio id="audioPlayer" controls playsinline style="width: 100%; margin-bottom: 10px;"></audio>
-    <div class="playlist" id="playlist"></div>
-</div>
+<div class="stats">HP: <span id="hp">3</span> | ROOM: <span id="room">1</span></div>
+<canvas id="gameCanvas" width="600" height="400"></canvas>
+<div class="controls">WASD - Move | ARROWS - Shoot</div>
 
 <script>
-    const firebaseConfig = {
-        apiKey: "AIzaSyB3jhyTjsNMy9cuKFtqPCV9YlGpYlk-FtA",
-        authDomain: "sakura-cloud-94eff.firebaseapp.com",
-        projectId: "sakura-cloud-94eff",
-        storageBucket: "sakura-cloud-94eff.firebasestorage.app",
-        messagingSenderId: "204236140147",
-        appId: "1:204236140147:web:8af34e5392b2eceead4406"
-    };
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const hpDisplay = document.getElementById('hp');
+    const roomDisplay = document.getElementById('room');
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    const auth = firebase.auth();
-    const provider = new firebase.auth.GoogleAuthProvider();
+    let player = { x: 300, y: 200, size: 20, hp: 3, speed: 4 };
+    let bullets = [];
+    let enemies = [];
+    let currentRoom = 1;
+    let keys = {};
 
-    let allTracks = [];
-    let currentUser = null;
-    let themes = ['theme-sakura', 'theme-void', 'theme-retro'];
-    let currentThemeIdx = 0;
+    // Управление
+    window.onkeydown = (e) => keys[e.code] = true;
+    window.onkeyup = (e) => keys[e.code] = false;
 
-    // Смена темы
-    function nextTheme() {
-        currentThemeIdx = (currentThemeIdx + 1) % themes.length;
-        document.body.className = themes[currentThemeIdx];
-        const titles = ['🌸 SAKURA CLOUD', '🌑 VOID CLOUD', '💾 RETRO CLOUD'];
-        document.getElementById('mainTitle').innerText = titles[currentThemeIdx];
-    }
-
-    auth.onAuthStateChanged(user => {
-        currentUser = user;
-        const authBtn = document.getElementById('authBtn');
-        const userImg = document.getElementById('userImg');
-        const addSection = document.getElementById('addSection');
-
-        if (user) {
-            authBtn.innerText = "Выйти";
-            userImg.src = user.photoURL;
-            userImg.style.display = "block";
-            addSection.style.display = "block";
-        } else {
-            authBtn.innerText = "Войти через Google";
-            userImg.style.display = "none";
-            addSection.style.display = "none";
+    function spawnEnemies() {
+        enemies = [];
+        for(let i = 0; i < currentRoom + 2; i++) {
+            enemies.push({
+                x: Math.random() * (canvas.width - 40) + 20,
+                y: Math.random() * (canvas.height - 40) + 20,
+                size: 15,
+                hp: 2,
+                speed: 1 + (currentRoom * 0.1)
+            });
         }
-        updateUI();
-    });
-
-    async function toggleAuth() {
-        if (currentUser) { await auth.signOut(); } 
-        else { await auth.signInWithPopup(provider); }
     }
 
-    function loadTracks() {
-        db.collection("music").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
-            allTracks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            updateUI();
-        });
-    }
+    function update() {
+        // Движение игрока
+        if (keys['KeyW'] && player.y > player.size) player.y -= player.speed;
+        if (keys['KeyS'] && player.y < canvas.height - player.size) player.y += player.speed;
+        if (keys['KeyA'] && player.x > player.size) player.x -= player.speed;
+        if (keys['KeyD'] && player.x < canvas.width - player.size) player.x += player.speed;
 
-    function updateUI() {
-        let filtered = allTracks.filter(t => t.name.toLowerCase().includes(document.getElementById('searchInput').value.toLowerCase()));
-        document.getElementById('trackCount').innerText = `Треков в облаке: ${allTracks.length}`;
-        renderPlaylist(filtered);
-    }
+        // Стрельба (Стрелочки)
+        if (keys['ArrowUp']) shoot(0, -5);
+        if (keys['ArrowDown']) shoot(0, 5);
+        if (keys['ArrowLeft']) shoot(-5, 0);
+        if (keys['ArrowRight']) shoot(5, 0);
 
-    function renderPlaylist(tracks) {
-        const container = document.getElementById('playlist');
-        container.innerHTML = tracks.length ? '' : 'Тут пока тихо...';
-        
-        tracks.forEach(t => {
-            const isOwner = currentUser && t.userId === currentUser.uid;
-            const div = document.createElement('div');
-            div.className = 'track' + (document.getElementById('audioPlayer').src === t.url ? ' playing' : '');
+        // Пули
+        bullets.forEach((b, i) => {
+            b.x += b.vx;
+            b.y += b.vy;
+            if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) bullets.splice(i, 1);
             
-            div.innerHTML = `
-                <div class="track-info">
-                    <span>🎵 ${t.name}</span>
-                    <span class="author-info">залил: ${t.userName || 'Аноним'}</span>
-                </div>
-                <div class="like-area">
-                    <button class="like-btn" onclick="addLike('${t.id}', ${t.likes || 0})">❤️ ${t.likes || 0}</button>
-                    ${isOwner ? '<button class="del-btn" onclick="deleteTrack(\''+t.id+'\')">✕</button>' : ''}
-                </div>
-            `;
-
-            div.querySelector('.track-info').onclick = () => {
-                const player = document.getElementById('audioPlayer');
-                player.src = t.url;
-                player.play();
-                updateUI();
-            };
-            container.appendChild(div);
+            // Попадание во врагов
+            enemies.forEach((en, ei) => {
+                let dist = Math.hypot(b.x - en.x, b.y - en.y);
+                if (dist < en.size) {
+                    en.hp--;
+                    bullets.splice(i, 1);
+                    if (en.hp <= 0) enemies.splice(ei, 1);
+                }
+            });
         });
-    }
 
-    async function addLike(id, currentLikes) {
-        if (!currentUser) return alert("Войди, чтобы ставить лайки!");
-        await db.collection("music").doc(id).update({ likes: currentLikes + 1 });
-    }
+        // Враги (преследование)
+        enemies.forEach(en => {
+            let dx = player.x - en.x;
+            let dy = player.y - en.y;
+            let angle = Math.atan2(dy, dx);
+            en.x += Math.cos(angle) * en.speed;
+            en.y += Math.sin(angle) * en.speed;
 
-    async function deleteTrack(id) {
-        if (confirm("Удалить свой трек?")) await db.collection("music").doc(id).delete();
-    }
-
-    async function addTrack() {
-        const name = document.getElementById('trackName').value;
-        const url = document.getElementById('trackUrl').value.trim();
-        if(!name || !url || !currentUser) return;
-        
-        await db.collection("music").add({
-            name: name,
-            url: url,
-            userId: currentUser.uid,
-            userName: currentUser.displayName,
-            likes: 0,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            // Урон игроку
+            if (Math.hypot(player.x - en.x, player.y - en.y) < player.size) {
+                player.hp -= 0.01; // Плавное падение HP
+                hpDisplay.innerText = Math.ceil(player.hp);
+                if (player.hp <= 0) location.reload();
+            }
         });
-        
-        document.getElementById('trackName').value = '';
-        document.getElementById('trackUrl').value = '';
+
+        // Переход в новую комнату
+        if (enemies.length === 0) {
+            currentRoom++;
+            roomDisplay.innerText = currentRoom;
+            player.x = 300; player.y = 200;
+            spawnEnemies();
+        }
     }
 
-    // Лепестки (адаптивные)
-    setInterval(() => {
-        const p = document.createElement('div');
-        p.className = 'petal';
-        p.style.left = Math.random() * 100 + 'vw';
-        p.style.width = p.style.height = Math.random() * 10 + 10 + 'px';
-        p.style.animationDuration = Math.random() * 3 + 5 + 's';
-        document.getElementById('sakura-container').appendChild(p);
-        setTimeout(() => p.remove(), 7000);
-    }, 700);
+    function shoot(vx, vy) {
+        if (Date.now() - (player.lastShot || 0) < 250) return;
+        bullets.push({ x: player.x, y: player.y, vx, vy });
+        player.lastShot = Date.now();
+    }
 
-    loadTracks();
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Игрок (Голова)
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Пули
+        ctx.fillStyle = '#00ffff';
+        bullets.forEach(b => {
+            ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI*2); ctx.fill();
+        });
+
+        // Враги
+        ctx.fillStyle = '#ff4d4d';
+        enemies.forEach(en => {
+            ctx.beginPath(); ctx.arc(en.x, en.y, en.size, 0, Math.PI*2); ctx.fill();
+        });
+
+        update();
+        requestAnimationFrame(draw);
+    }
+
+    spawnEnemies();
+    draw();
 </script>
 </body>
 </html>
