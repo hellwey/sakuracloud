@@ -3,135 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🌸 SAKURA_CLOUD_GLOBAL 🌸</title>
+    <title>🌸 SAKURA_CLOUD_V1.2 🌸</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
     <style>
         :root { --sakura: #ffb7c5; --white: #fffaff; --text: #7c585e; --active: #ff69b4; }
-        
-        /* Сброс стилей для мобилок */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
-        body { 
-            background: var(--white); 
-            color: var(--text); 
-            font-family: 'Segoe UI', Roboto, sans-serif; 
-            margin: 0; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            min-height: 100vh; 
-            overflow-x: hidden; 
-        }
+        body { background: var(--white); color: var(--text); font-family: sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
 
-        .player-card { 
-            background: white; 
-            width: 95%; 
-            max-width: 500px; 
-            margin: 20px 0; 
-            padding: 25px; 
-            border-radius: 35px; 
-            border: 4px solid var(--sakura); 
-            box-shadow: 0 10px 30px rgba(255,183,197,0.3); 
-            text-align: center; 
-            z-index: 10; 
-        }
+        /* Метка версии */
+        .version-tag { position: fixed; top: 10px; right: 10px; font-size: 10px; background: var(--sakura); color: white; padding: 3px 8px; border-radius: 10px; z-index: 100; font-weight: bold; }
 
-        h1 { font-size: 24px; margin-bottom: 20px; letter-spacing: 2px; }
+        .player-card { background: white; width: 95%; max-width: 500px; margin: 40px 0 20px; padding: 25px; border-radius: 35px; border: 4px solid var(--sakura); box-shadow: 0 10px 30px rgba(255,183,197,0.3); text-align: center; position: relative; }
 
-        input { 
-            width: 100%; 
-            padding: 14px; 
-            border: 2px solid var(--sakura); 
-            border-radius: 20px; 
-            margin-bottom: 10px; 
-            outline: none; 
-            font-size: 16px; /* Предотвращает зум на iPhone */
-        }
+        input { width: 100%; padding: 14px; border: 2px solid var(--sakura); border-radius: 20px; margin-bottom: 10px; outline: none; font-size: 16px; }
 
-        .add-section { 
-            background: #fff5f7; 
-            padding: 15px; 
-            border-radius: 25px; 
-            margin-bottom: 20px; 
-            border: 1px dashed var(--sakura); 
-        }
+        .add-section { background: #fff5f7; padding: 15px; border-radius: 25px; margin-bottom: 20px; border: 1px dashed var(--sakura); }
 
-        .add-btn { 
-            background: var(--sakura); 
-            color: white; 
-            padding: 15px; 
-            border-radius: 50px; 
-            cursor: pointer; 
-            border: none; 
-            font-weight: bold; 
-            width: 100%; 
-            font-size: 14px;
-            transition: 0.2s; 
-        }
-
-        .add-btn:active { transform: scale(0.98); background: var(--active); }
+        .add-btn { background: var(--sakura); color: white; padding: 15px; border-radius: 50px; cursor: pointer; border: none; font-weight: bold; width: 100%; transition: 0.2s; }
+        .add-btn:active { background: var(--active); transform: scale(0.95); }
 
         audio { width: 100%; margin: 15px 0; }
 
-        .playlist { 
-            width: 100%; 
-            max-height: 350px; 
-            overflow-y: auto; 
-            text-align: left; 
-            padding-right: 5px;
-        }
+        .playlist { width: 100%; max-height: 350px; overflow-y: auto; text-align: left; }
 
-        .track { 
-            padding: 15px; 
-            border-radius: 18px; 
-            background: #fffafb; 
-            margin-bottom: 10px; 
-            cursor: pointer; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center;
-            border: 2px solid transparent;
-            transition: 0.2s;
-        }
+        .track { padding: 15px; border-radius: 18px; background: #fffafb; margin-bottom: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border: 2px solid transparent; }
+        .track.playing { border-color: var(--active); background: #fff0f5; color: var(--active); font-weight: bold; }
 
-        .track.playing { 
-            border-color: var(--active); 
-            background: #fff0f5; 
-            color: var(--active); 
-        }
-
-        .petal { 
-            position: fixed; 
-            background: var(--sakura); 
-            border-radius: 150% 0 150% 0; 
-            z-index: 1; 
-            animation: fall linear infinite; 
-            opacity: 0.4; 
-            pointer-events: none; 
-        }
-
+        .petal { position: fixed; background: var(--sakura); border-radius: 150% 0 150% 0; z-index: 1; animation: fall linear infinite; opacity: 0.4; pointer-events: none; }
         @keyframes fall { to { transform: translateY(100vh) rotate(360deg); } }
     </style>
 </head>
 <body>
 
+<div class="version-tag">VER 1.2 (MOBILE_FIX)</div>
 <div id="sakura-container"></div>
 
 <div class="player-card">
     <h1>🌸 SAKURA CLOUD</h1>
     
-    <input type="text" id="searchInput" placeholder="🔍 Поиск трека..." oninput="filterTracks()">
+    <input type="text" id="searchInput" placeholder="🔍 Найти свой бит..." oninput="filterTracks()">
     
     <div class="add-section">
-        <input type="text" id="trackName" placeholder="Название бита...">
+        <input type="text" id="trackName" placeholder="Название...">
         <input type="text" id="trackUrl" placeholder="Прямая ссылка (.mp3)...">
-        <div id="linkWarn" style="font-size: 11px; color: #d00; margin-bottom: 10px; display: none;">⚠️ Это не прямая ссылка! Используй Discord или raw-ссылку.</div>
-        <button class="add-btn" onclick="addTrack()">ОПУБЛИКОВАТЬ ☁️</button>
+        <button class="add-btn" onclick="addTrack()">ЗАЛИТЬ В ОБЛАКО ☁️</button>
     </div>
 
-    <audio id="audioPlayer" controls playsinline></audio>
-    <div class="playlist" id="playlist">Загрузка музыкального облака...</div>
+    <audio id="audioPlayer" controls playsinline preload="auto"></audio>
+    <div class="playlist" id="playlist">Синхронизация с базой...</div>
 </div>
 
 <script>
@@ -158,28 +79,28 @@
 
     function renderPlaylist(tracks) {
         const container = document.getElementById('playlist');
-        container.innerHTML = tracks.length ? '' : '<div style="text-align:center; opacity:0.5;">Тут пока тишина...</div>';
+        container.innerHTML = tracks.length ? '' : 'Облако пусто...';
         
         tracks.forEach(t => {
             const div = document.createElement('div');
             div.className = 'track' + (currentUrl === t.url ? ' playing' : '');
-            div.innerHTML = `<span>🎵 ${t.name}</span> <b style="font-size:20px">▶</b>`;
+            div.innerHTML = `<span>🎵 ${t.name}</span> <b>▶</b>`;
             
-            // Мобильная адаптация клика
-            div.onclick = () => {
+            // Фикс для мобильного Safari/Chrome
+            div.onclick = function() {
                 currentUrl = t.url;
                 const player = document.getElementById('audioPlayer');
                 
-                player.pause();
                 player.src = t.url;
-                player.load(); // Принудительно загружаем поток
+                player.load(); // Принудительный старт буферизации
                 
-                const playPromise = player.play();
-                if (playPromise !== undefined) {
-                    playPromise.catch(() => {
-                        console.log("Нужно нажать Play вручную из-за защиты браузера");
+                // Эмуляция клика для обхода блокировок
+                setTimeout(() => {
+                    player.play().catch(e => {
+                        alert("Нажми на Play на самом плеере, браузер блокирует звук!");
                     });
-                }
+                }, 100);
+                
                 renderPlaylist(allTracks);
             };
             container.appendChild(div);
@@ -194,39 +115,27 @@
     async function addTrack() {
         const name = document.getElementById('trackName').value;
         const url = document.getElementById('trackUrl').value.trim();
-        const warn = document.getElementById('linkWarn');
-        
-        if(!name || !url) return alert("Заполни инфу!");
-
-        // Проверка на кривые ссылки
-        if ((url.includes("drive.google.com") || url.includes("dropbox.com")) && 
-            !url.includes("raw=1") && !url.includes("export=download")) {
-            warn.style.display = "block";
-            return;
-        }
-        warn.style.display = "none";
-
+        if(!name || !url) return;
         await db.collection("music").add({
             name: name,
             url: url,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        
         document.getElementById('trackName').value = '';
         document.getElementById('trackUrl').value = '';
     }
 
-    // Лепестки сакуры
+    // Лепестки
     setInterval(() => {
         const p = document.createElement('div');
         p.className = 'petal';
         p.style.left = Math.random() * 100 + 'vw';
-        const size = Math.random() * 12 + 8 + 'px';
+        const size = Math.random() * 10 + 10 + 'px';
         p.style.width = p.style.height = size;
-        p.style.animationDuration = Math.random() * 3 + 5 + 's';
+        p.style.animationDuration = Math.random() * 2 + 4 + 's';
         document.getElementById('sakura-container').appendChild(p);
-        setTimeout(() => p.remove(), 7000);
-    }, 500);
+        setTimeout(() => p.remove(), 6000);
+    }, 600);
 
     loadTracks();
 </script>
