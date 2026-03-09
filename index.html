@@ -3,17 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🌸 SAKURA_CLOUD_V1.2 🌸</title>
+    <title>🌸 SAKURA_CLOUD_V1.3 🌸</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
     <style>
-        :root { --sakura: #ffb7c5; --white: #fffaff; --text: #7c585e; --active: #ff69b4; }
+        :root { --sakura: #ffb7c5; --white: #fffaff; --text: #7c585e; --active: #ff69b4; --delete: #ff4d4d; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
         body { background: var(--white); color: var(--text); font-family: sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
 
-        /* Метка версии */
-        .version-tag { position: fixed; top: 10px; right: 10px; font-size: 10px; background: var(--sakura); color: white; padding: 3px 8px; border-radius: 10px; z-index: 100; font-weight: bold; }
+        .version-tag { position: fixed; top: 10px; right: 10px; font-size: 10px; background: var(--active); color: white; padding: 3px 8px; border-radius: 10px; z-index: 100; font-weight: bold; }
 
         .player-card { background: white; width: 95%; max-width: 500px; margin: 40px 0 20px; padding: 25px; border-radius: 35px; border: 4px solid var(--sakura); box-shadow: 0 10px 30px rgba(255,183,197,0.3); text-align: center; position: relative; }
 
@@ -28,8 +27,13 @@
 
         .playlist { width: 100%; max-height: 350px; overflow-y: auto; text-align: left; }
 
-        .track { padding: 15px; border-radius: 18px; background: #fffafb; margin-bottom: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border: 2px solid transparent; }
+        .track { padding: 15px; border-radius: 18px; background: #fffafb; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border: 2px solid transparent; transition: 0.2s; }
         .track.playing { border-color: var(--active); background: #fff0f5; color: var(--active); font-weight: bold; }
+        
+        .track-info { flex-grow: 1; cursor: pointer; display: flex; align-items: center; }
+        
+        .del-btn { background: none; border: none; color: #ccc; cursor: pointer; font-size: 18px; padding: 5px 10px; transition: 0.3s; margin-left: 10px; }
+        .del-btn:hover { color: var(--delete); transform: scale(1.2); }
 
         .petal { position: fixed; background: var(--sakura); border-radius: 150% 0 150% 0; z-index: 1; animation: fall linear infinite; opacity: 0.4; pointer-events: none; }
         @keyframes fall { to { transform: translateY(100vh) rotate(360deg); } }
@@ -37,22 +41,22 @@
 </head>
 <body>
 
-<div class="version-tag">VER 1.2 (MOBILE_FIX)</div>
+<div class="version-tag">VER 1.3 (DELETE_UPDATE)</div>
 <div id="sakura-container"></div>
 
 <div class="player-card">
     <h1>🌸 SAKURA CLOUD</h1>
     
-    <input type="text" id="searchInput" placeholder="🔍 Найти свой бит..." oninput="filterTracks()">
+    <input type="text" id="searchInput" placeholder="🔍 Найти трек в облаке..." oninput="filterTracks()">
     
     <div class="add-section">
         <input type="text" id="trackName" placeholder="Название...">
         <input type="text" id="trackUrl" placeholder="Прямая ссылка (.mp3)...">
-        <button class="add-btn" onclick="addTrack()">ЗАЛИТЬ В ОБЛАКО ☁️</button>
+        <button class="add-btn" onclick="addTrack()">ДОБАВИТЬ ☁️</button>
     </div>
 
     <audio id="audioPlayer" controls playsinline preload="auto"></audio>
-    <div class="playlist" id="playlist">Синхронизация с базой...</div>
+    <div class="playlist" id="playlist">Загрузка базы...</div>
 </div>
 
 <script>
@@ -72,7 +76,7 @@
 
     function loadTracks() {
         db.collection("music").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
-            allTracks = snapshot.docs.map(doc => doc.data());
+            allTracks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             renderPlaylist(allTracks);
         });
     }
@@ -84,25 +88,36 @@
         tracks.forEach(t => {
             const div = document.createElement('div');
             div.className = 'track' + (currentUrl === t.url ? ' playing' : '');
-            div.innerHTML = `<span>🎵 ${t.name}</span> <b>▶</b>`;
             
-            // Фикс для мобильного Safari/Chrome
-            div.onclick = function() {
+            div.innerHTML = `
+                <div class="track-info">
+                    <span>🎵 ${t.name}</span>
+                </div>
+                <button class="del-btn" title="Удалить">✕</button>
+            `;
+
+            // Логика клика (для игры)
+            div.querySelector('.track-info').onclick = () => {
                 currentUrl = t.url;
                 const player = document.getElementById('audioPlayer');
-                
                 player.src = t.url;
-                player.load(); // Принудительный старт буферизации
-                
-                // Эмуляция клика для обхода блокировок
-                setTimeout(() => {
-                    player.play().catch(e => {
-                        alert("Нажми на Play на самом плеере, браузер блокирует звук!");
-                    });
-                }, 100);
-                
+                player.load();
+                player.play().catch(() => console.log("Блокировка звука"));
                 renderPlaylist(allTracks);
             };
+
+            // Логика удаления
+            div.querySelector('.del-btn').onclick = async (e) => {
+                e.stopPropagation(); // Чтобы при клике на крестик не запускалась музыка
+                if (confirm(`Удалить трек "${t.name}"?`)) {
+                    try {
+                        await db.collection("music").doc(t.id).delete();
+                    } catch (err) {
+                        alert("Ошибка при удалении: " + err.message);
+                    }
+                }
+            };
+
             container.appendChild(div);
         });
     }
@@ -116,11 +131,13 @@
         const name = document.getElementById('trackName').value;
         const url = document.getElementById('trackUrl').value.trim();
         if(!name || !url) return;
+        
         await db.collection("music").add({
             name: name,
             url: url,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
+        
         document.getElementById('trackName').value = '';
         document.getElementById('trackUrl').value = '';
     }
@@ -130,12 +147,11 @@
         const p = document.createElement('div');
         p.className = 'petal';
         p.style.left = Math.random() * 100 + 'vw';
-        const size = Math.random() * 10 + 10 + 'px';
-        p.style.width = p.style.height = size;
-        p.style.animationDuration = Math.random() * 2 + 4 + 's';
+        p.style.width = p.style.height = Math.random() * 10 + 10 + 'px';
+        p.style.animationDuration = Math.random() * 2 + 5 + 's';
         document.getElementById('sakura-container').appendChild(p);
-        setTimeout(() => p.remove(), 6000);
-    }, 600);
+        setTimeout(() => p.remove(), 7000);
+    }, 700);
 
     loadTracks();
 </script>
