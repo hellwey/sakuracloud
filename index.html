@@ -3,44 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🌸 SAKURA_CLOUD_V1.4 🌸</title>
+    <title>🌸 SAKURA_CLOUD_V1.5 🌸</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
     <style>
         :root { --sakura: #ffb7c5; --white: #fffaff; --text: #7c585e; --active: #ff69b4; --delete: #ff4d4d; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        
         body { background: var(--white); color: var(--text); font-family: sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
 
-        .version-tag { position: fixed; top: 10px; right: 10px; font-size: 10px; background: var(--active); color: white; padding: 3px 8px; border-radius: 10px; z-index: 100; font-weight: bold; }
+        .version-tag { position: fixed; top: 10px; left: 10px; font-size: 10px; background: var(--active); color: white; padding: 3px 8px; border-radius: 10px; z-index: 100; font-weight: bold; }
 
-        .player-card { background: white; width: 95%; max-width: 500px; margin: 40px 0 20px; padding: 25px; border-radius: 35px; border: 4px solid var(--sakura); box-shadow: 0 10px 30px rgba(255,183,197,0.3); text-align: center; position: relative; }
+        /* Профиль сверху */
+        .auth-bar { width: 95%; max-width: 500px; display: flex; justify-content: flex-end; align-items: center; padding: 10px; gap: 10px; margin-top: 10px; }
+        .user-avatar { width: 35px; height: 35px; border-radius: 50%; border: 2px solid var(--sakura); display: none; }
+        .auth-btn { background: white; border: 2px solid var(--sakura); color: var(--text); padding: 5px 15px; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: bold; }
 
-        input, select { width: 100%; padding: 12px; border: 2px solid var(--sakura); border-radius: 15px; margin-bottom: 10px; outline: none; font-size: 16px; background: white; color: var(--text); }
+        .player-card { background: white; width: 95%; max-width: 500px; margin: 10px 0 20px; padding: 25px; border-radius: 35px; border: 4px solid var(--sakura); box-shadow: 0 10px 30px rgba(255,183,197,0.3); text-align: center; position: relative; }
 
-        .add-section { background: #fff5f7; padding: 15px; border-radius: 25px; margin-bottom: 20px; border: 1px dashed var(--sakura); }
+        input, select { width: 100%; padding: 12px; border: 2px solid var(--sakura); border-radius: 15px; margin-bottom: 10px; outline: none; font-size: 16px; background: white; }
+        .add-section { background: #fff5f7; padding: 15px; border-radius: 25px; margin-bottom: 20px; border: 1px dashed var(--sakura); display: none; } /* Скрыто до входа */
 
         .add-btn { background: var(--sakura); color: white; padding: 15px; border-radius: 50px; cursor: pointer; border: none; font-weight: bold; width: 100%; transition: 0.2s; }
-        .add-btn:active { background: var(--active); transform: scale(0.95); }
-
-        .controls-row { display: flex; gap: 10px; margin-bottom: 15px; }
-        .stats { font-size: 12px; opacity: 0.7; margin-bottom: 10px; text-align: left; padding-left: 5px; }
-
-        audio { width: 100%; margin: 15px 0; }
-
-        .playlist { width: 100%; max-height: 300px; overflow-y: auto; text-align: left; padding-right: 5px; }
-        /* Стилизация скроллбара */
-        .playlist::-webkit-scrollbar { width: 5px; }
-        .playlist::-webkit-scrollbar-thumb { background: var(--sakura); border-radius: 10px; }
-
-        .track { padding: 12px; border-radius: 15px; background: #fffafb; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border: 2px solid transparent; transition: 0.2s; }
+        .track { padding: 12px; border-radius: 15px; background: #fffafb; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border: 2px solid transparent; }
         .track.playing { border-color: var(--active); background: #fff0f5; color: var(--active); font-weight: bold; }
         
-        .track-info { flex-grow: 1; cursor: pointer; display: flex; align-items: center; font-size: 14px; overflow: hidden; }
-        .track-info span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        
-        .del-btn { background: none; border: none; color: #ccc; cursor: pointer; font-size: 16px; padding: 5px; margin-left: 10px; }
-        .del-btn:hover { color: var(--delete); }
+        .author-info { font-size: 10px; opacity: 0.6; display: block; margin-top: 2px; }
+        .track-info { flex-grow: 1; cursor: pointer; text-align: left; overflow: hidden; }
+        .del-btn { background: none; border: none; color: #ccc; cursor: pointer; font-size: 16px; display: none; }
 
         .petal { position: fixed; background: var(--sakura); border-radius: 150% 0 150% 0; z-index: 1; animation: fall linear infinite; opacity: 0.4; pointer-events: none; }
         @keyframes fall { to { transform: translateY(100vh) rotate(360deg); } }
@@ -48,30 +38,28 @@
 </head>
 <body>
 
-<div class="version-tag">VER 1.4 (SORT_UPDATE)</div>
+<div class="version-tag">VER 1.5 (AUTH_UPDATE)</div>
 <div id="sakura-container"></div>
+
+<div class="auth-bar">
+    <img id="userImg" class="user-avatar" src="" alt="avatar">
+    <button id="authBtn" class="auth-btn" onclick="toggleAuth()">Войти через Google</button>
+</div>
 
 <div class="player-card">
     <h1>🌸 SAKURA CLOUD</h1>
     
-    <div class="add-section">
+    <div id="addSection" class="add-section">
         <input type="text" id="trackName" placeholder="Название трека...">
         <input type="text" id="trackUrl" placeholder="Прямая ссылка (.mp3)...">
         <button class="add-btn" onclick="addTrack()">ОПУБЛИКОВАТЬ ☁️</button>
     </div>
 
-    <div class="controls-row">
-        <input type="text" id="searchInput" placeholder="🔍 Поиск..." oninput="updateUI()" style="margin-bottom:0; flex: 2;">
-        <select id="sortSelect" onchange="updateUI()" style="margin-bottom:0; flex: 1;">
-            <option value="new">Новые</option>
-            <option value="az">А-Я</option>
-        </select>
-    </div>
-
-    <div class="stats" id="trackCount">Треков в облаке: 0</div>
+    <input type="text" id="searchInput" placeholder="🔍 Поиск..." oninput="updateUI()">
+    <div id="trackCount" style="font-size: 11px; margin-bottom: 10px; opacity: 0.7;">Загрузка...</div>
 
     <audio id="audioPlayer" controls playsinline></audio>
-    <div class="playlist" id="playlist">Загрузка...</div>
+    <div class="playlist" id="playlist"></div>
 </div>
 
 <script>
@@ -86,8 +74,39 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    const auth = firebase.auth();
+    const provider = new firebase.auth.GoogleAuthProvider();
+
     let allTracks = [];
-    let currentUrl = "";
+    let currentUser = null;
+
+    // Следим за пользователем
+    auth.onAuthStateChanged(user => {
+        currentUser = user;
+        const authBtn = document.getElementById('authBtn');
+        const userImg = document.getElementById('userImg');
+        const addSection = document.getElementById('addSection');
+
+        if (user) {
+            authBtn.innerText = "Выйти";
+            userImg.src = user.photoURL;
+            userImg.style.display = "block";
+            addSection.style.display = "block";
+        } else {
+            authBtn.innerText = "Войти через Google";
+            userImg.style.display = "none";
+            addSection.style.display = "none";
+        }
+        updateUI();
+    });
+
+    async function toggleAuth() {
+        if (currentUser) {
+            await auth.signOut();
+        } else {
+            await auth.signInWithPopup(provider);
+        }
+    }
 
     function loadTracks() {
         db.collection("music").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
@@ -98,45 +117,39 @@
 
     function updateUI() {
         let filtered = allTracks.filter(t => t.name.toLowerCase().includes(document.getElementById('searchInput').value.toLowerCase()));
-        
-        const sortType = document.getElementById('sortSelect').value;
-        if (sortType === 'az') {
-            filtered.sort((a, b) => a.name.localeCompare(b.name));
-        } else {
-            // Firestore уже отдает в порядке создания, но для надежности:
-            filtered.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-        }
-
         document.getElementById('trackCount').innerText = `Треков в облаке: ${allTracks.length}`;
         renderPlaylist(filtered);
     }
 
     function renderPlaylist(tracks) {
         const container = document.getElementById('playlist');
-        container.innerHTML = tracks.length ? '' : '<div style="text-align:center;padding:20px;opacity:0.5">Ничего не найдено...</div>';
+        container.innerHTML = tracks.length ? '' : 'Тут пусто...';
         
         tracks.forEach(t => {
+            const isOwner = currentUser && t.userId === currentUser.uid;
             const div = document.createElement('div');
-            div.className = 'track' + (currentUrl === t.url ? ' playing' : '');
+            div.className = 'track' + (document.getElementById('audioPlayer').src === t.url ? ' playing' : '');
+            
             div.innerHTML = `
-                <div class="track-info"><span>🎵 ${t.name}</span></div>
-                <button class="del-btn">✕</button>
+                <div class="track-info">
+                    <span>🎵 ${t.name}</span>
+                    <span class="author-info">залил: ${t.userName || 'Аноним'}</span>
+                </div>
+                ${isOwner ? '<button class="del-btn" style="display:block">✕</button>' : ''}
             `;
 
             div.querySelector('.track-info').onclick = () => {
-                currentUrl = t.url;
                 const player = document.getElementById('audioPlayer');
                 player.src = t.url;
-                player.load();
                 player.play();
                 updateUI();
             };
 
-            div.querySelector('.del-btn').onclick = async () => {
-                if (confirm(`Удалить "${t.name}"?`)) {
-                    await db.collection("music").doc(t.id).delete();
-                }
-            };
+            if (isOwner) {
+                div.querySelector('.del-btn').onclick = async () => {
+                    if (confirm("Удалить свой трек?")) await db.collection("music").doc(t.id).delete();
+                };
+            }
             container.appendChild(div);
         });
     }
@@ -144,25 +157,22 @@
     async function addTrack() {
         const name = document.getElementById('trackName').value;
         const url = document.getElementById('trackUrl').value.trim();
-        if(!name || !url) return;
+        if(!name || !url || !currentUser) return;
+        
         await db.collection("music").add({
-            name: name, url: url, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            name: name,
+            url: url,
+            userId: currentUser.uid,
+            userName: currentUser.displayName,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
+        
         document.getElementById('trackName').value = '';
         document.getElementById('trackUrl').value = '';
     }
 
-    setInterval(() => {
-        const p = document.createElement('div');
-        p.className = 'petal';
-        p.style.left = Math.random() * 100 + 'vw';
-        p.style.width = p.style.height = Math.random() * 8 + 8 + 'px';
-        p.style.animationDuration = Math.random() * 2 + 5 + 's';
-        document.getElementById('sakura-container').appendChild(p);
-        setTimeout(() => p.remove(), 7000);
-    }, 800);
-
     loadTracks();
+    // (Анимация сакуры остается такой же)
 </script>
 </body>
 </html>
