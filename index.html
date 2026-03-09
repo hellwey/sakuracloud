@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WOLF_ULTIMATE_TRADER</title>
+    <title>WOLF_NEWS_RETURN</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; font-family: 'Arial Black', sans-serif; touch-action: none; user-select: none; }
         #ui { position: absolute; width: 100%; top: 10px; display: flex; justify-content: space-around; z-index: 10; pointer-events: none; }
         .box { background: #000; border: 2px solid #0f0; padding: 5px; color: #0f0; text-align: center; min-width: 90px; box-shadow: 0 0 10px #0f0; font-size: 14px; }
-        #abilities { position: absolute; right: 10px; top: 100px; display: flex; flex-direction: column; gap: 10px; z-index: 20; }
+        #news-ticker { position: absolute; top: 100px; width: 100%; text-align: center; color: #fff; font-size: 20px; background: rgba(255,0,0,0.7); padding: 10px 0; display: none; z-index: 50; border-top: 2px solid #fff; border-bottom: 2px solid #fff; text-shadow: 2px 2px #000; }
+        #abilities { position: absolute; right: 10px; top: 180px; display: flex; flex-direction: column; gap: 10px; z-index: 20; }
         .abil-btn { width: 60px; height: 60px; border-radius: 50%; border: 2px solid #fff; color: #fff; font-size: 10px; display: flex; align-items: center; justify-content: center; text-align: center; cursor: pointer; background: rgba(0,0,0,0.8); }
-        .abil-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-        #irs-alert { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); width: 250px; background: red; color: white; padding: 20px; text-align: center; border: 5px solid white; display: none; z-index: 100; font-size: 20px; }
+        .abil-btn:disabled { opacity: 0.3; }
+        #irs-alert { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); width: 250px; background: red; color: white; padding: 20px; text-align: center; border: 5px solid white; display: none; z-index: 100; }
         #controls { position: absolute; bottom: 10px; width: 100%; display: flex; justify-content: center; gap: 5px; }
         .col { display: flex; flex-direction: column; gap: 5px; flex: 1; padding: 5px; }
         .btn { padding: 20px 0; font-weight: bold; border: none; border-radius: 8px; color: #fff; text-transform: uppercase; font-size: 14px; }
@@ -27,6 +28,8 @@
     <div class="box">RATE<br><span id="rate">100</span></div>
     <div class="box">UNITS<br><span id="assets">0</span></div>
 </div>
+
+<div id="news-ticker">BREAKING NEWS!</div>
 
 <div id="abilities">
     <button id="insider-btn" class="abil-btn" onclick="useInsider()">INSIDE<br>INFO</button>
@@ -59,20 +62,55 @@ const config = {
 
 const game = new Phaser.Game(config);
 let cash = 1000, assets = 0, rate = 100.0, history = [100], graph;
-let trend = 0, targetTrend = 0, isFrozen = false, isInside = false;
+let targetTrend = 0, isFrozen = false, isInside = false;
+
+const newsList = [
+    { m: "ELON MUSK BOUGHT COIN! 🚀", v: 40, c: "#0f0" },
+    { m: "SYSTEM HACKED! 💀", v: -45, c: "#f00" },
+    { m: "CRYPTO LEGALIZED! ✅", v: 25, c: "#0f0" },
+    { m: "GOVERNMENT BAN! ❌", v: -35, c: "#f00" },
+    { m: "NEW GOLD MINE FOUND! 💰", v: 20, c: "#ff0" },
+    { m: "CEO DISAPPEARED! 🏃", v: -25, c: "#f0f" },
+    { m: "ALIEN ATTACK! 🛸", v: -60, c: "#f00" },
+    { m: "MONEY RAIN! 💸", v: 15, c: "#0ff" }
+];
 
 function create() {
     graph = this.add.graphics();
     this.time.addEvent({ delay: 350, callback: tick, loop: true });
-    this.time.addEvent({ delay: 12000, callback: randomIRS, loop: true });
+    this.time.addEvent({ delay: 7000, callback: triggerNews, loop: true });
+    this.time.addEvent({ delay: 15000, callback: randomIRS, loop: true });
+}
+
+function triggerNews() {
+    let n = newsList[Math.floor(Math.random() * newsList.length)];
+    
+    const show = () => {
+        targetTrend = n.v;
+        let ticker = document.getElementById('news-ticker');
+        ticker.innerText = n.m;
+        ticker.style.display = 'block';
+        ticker.style.background = n.v > 0 ? 'rgba(0,255,0,0.7)' : 'rgba(255,0,0,0.7)';
+        setTimeout(() => { 
+            ticker.style.display = 'none'; 
+            targetTrend = -n.v * 0.4; // Отскок
+            setTimeout(() => targetTrend = 0, 3000);
+        }, 2500);
+    };
+
+    if (isInside) {
+        // Если инсайд включен, мы заранее знаем новость (мерцание)
+        game.scene.scenes[0].cameras.main.flash(500, 0, 255, 255);
+        setTimeout(show, 2000); 
+    } else {
+        show();
+    }
 }
 
 function tick() {
     if (isFrozen) return;
-    
-    let resistance = (rate - 100) * 0.08; 
-    let change = (Math.random() - 0.5) * 12 + targetTrend - resistance;
-    
+    let resistance = (rate - 100) * 0.07; 
+    let change = (Math.random() - 0.5) * 10 + targetTrend - resistance;
     rate = Math.max(1, rate + change);
     history.push(rate);
     if(history.length > 90) history.shift();
@@ -84,8 +122,8 @@ function useInsider() {
     document.getElementById('insider-btn').disabled = true;
     setTimeout(() => { 
         isInside = false; 
-        setTimeout(() => document.getElementById('insider-btn').disabled = false, 20000);
-    }, 5000);
+        setTimeout(() => document.getElementById('insider-btn').disabled = false, 25000);
+    }, 8000);
 }
 
 function useFreeze() {
@@ -93,20 +131,20 @@ function useFreeze() {
     document.getElementById('freeze-btn').disabled = true;
     setTimeout(() => { 
         isFrozen = false; 
-        setTimeout(() => document.getElementById('freeze-btn').disabled = false, 30000);
+        setTimeout(() => document.getElementById('freeze-btn').disabled = false, 35000);
     }, 3000);
 }
 
 function randomIRS() {
-    if (cash > 5000 && Math.random() > 0.6) {
+    if (cash > 3000 && Math.random() > 0.7) {
         document.getElementById('irs-alert').style.display = 'block';
         setTimeout(() => {
             if (document.getElementById('irs-alert').style.display === 'block') {
-                cash *= 0.7; // Штраф 30%
+                cash *= 0.7;
                 document.getElementById('irs-alert').style.display = 'none';
                 updateUI();
             }
-        }, 2000);
+        }, 2500);
     }
 }
 
@@ -133,19 +171,13 @@ function updateUI() {
     document.getElementById('cash').innerText = Math.floor(cash);
     document.getElementById('assets').innerText = assets.toFixed(2);
     document.getElementById('rate').innerText = rate.toFixed(1);
-    document.getElementById('rate').style.color = rate > history[history.length-2] ? '#0f0' : '#f00';
+    document.getElementById('rate').style.color = rate > (history[history.length-2] || 0) ? '#0f0' : '#f00';
 }
 
 function update() {
     graph.clear();
-    // Эффект инсайда
-    let color = 0x00ffff;
-    if (isInside) {
-        // Предсказываем будущее на 1 тик (рандомно, но с учетом тренда)
-        color = (targetTrend > 0) ? 0x00ff00 : 0xff0000;
-    }
-
-    graph.lineStyle(4, color, 1);
+    let color = isInside ? 0x00ffff : 0x00ff00;
+    graph.lineStyle(3, color, 1);
     graph.beginPath();
     let step = 800 / 90;
     history.forEach((v, i) => {
@@ -153,9 +185,8 @@ function update() {
         if(i === 0) graph.moveTo(i * step, y); else graph.lineTo(i * step, y);
     });
     graph.strokePath();
-
     if (isFrozen) {
-        graph.lineStyle(10, 0x00ffff, 0.3);
+        graph.lineStyle(8, 0x00ffff, 0.5);
         graph.strokeRect(0, 0, 800, 450);
     }
 }
