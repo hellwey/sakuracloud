@@ -3,63 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🌸 SAKURA_CLOUD_V1.5 🌸</title>
+    <title>🌸 SAKURA_CLOUD_V1.7 🌸</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
     <style>
-        :root { --sakura: #ffb7c5; --white: #fffaff; --text: #7c585e; --active: #ff69b4; --delete: #ff4d4d; }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { background: var(--white); color: var(--text); font-family: sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        :root { --sakura: #ffb7c5; --white: #fffaff; --text: #7c585e; --active: #ff69b4; }
+        .theme-sakura { --bg: #fffaff; --accent: #ffb7c5; --text: #7c585e; --card: #ffffff; --item: #ffb7c5; --viz: #ffb7c5; }
+        .theme-void { --bg: #0a0a0a; --accent: #4a4a4a; --text: #e0e0e0; --card: #1a1a1a; --item: #333333; --viz: #888888; }
+        .theme-retro { --bg: #c0c0c0; --accent: #000080; --text: #000000; --card: #ffffff; --item: #dfdfdf; --viz: #00ff00; }
 
-        .version-tag { position: fixed; top: 10px; left: 10px; font-size: 10px; background: var(--active); color: white; padding: 3px 8px; border-radius: 10px; z-index: 100; font-weight: bold; }
+        * { box-sizing: border-box; transition: background 0.3s, color 0.3s; }
+        body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow-x: hidden; }
 
-        /* Профиль сверху */
-        .auth-bar { width: 95%; max-width: 500px; display: flex; justify-content: flex-end; align-items: center; padding: 10px; gap: 10px; margin-top: 10px; }
-        .user-avatar { width: 35px; height: 35px; border-radius: 50%; border: 2px solid var(--sakura); display: none; }
-        .auth-btn { background: white; border: 2px solid var(--sakura); color: var(--text); padding: 5px 15px; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: bold; }
-
-        .player-card { background: white; width: 95%; max-width: 500px; margin: 10px 0 20px; padding: 25px; border-radius: 35px; border: 4px solid var(--sakura); box-shadow: 0 10px 30px rgba(255,183,197,0.3); text-align: center; position: relative; }
-
-        input, select { width: 100%; padding: 12px; border: 2px solid var(--sakura); border-radius: 15px; margin-bottom: 10px; outline: none; font-size: 16px; background: white; }
-        .add-section { background: #fff5f7; padding: 15px; border-radius: 25px; margin-bottom: 20px; border: 1px dashed var(--sakura); display: none; } /* Скрыто до входа */
-
-        .add-btn { background: var(--sakura); color: white; padding: 15px; border-radius: 50px; cursor: pointer; border: none; font-weight: bold; width: 100%; transition: 0.2s; }
-        .track { padding: 12px; border-radius: 15px; background: #fffafb; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border: 2px solid transparent; }
-        .track.playing { border-color: var(--active); background: #fff0f5; color: var(--active); font-weight: bold; }
+        .player-card { background: var(--card); width: 95%; max-width: 500px; padding: 25px; border-radius: 35px; border: 4px solid var(--accent); text-align: center; z-index: 10; margin-top: 20px; }
         
-        .author-info { font-size: 10px; opacity: 0.6; display: block; margin-top: 2px; }
-        .track-info { flex-grow: 1; cursor: pointer; text-align: left; overflow: hidden; }
-        .del-btn { background: none; border: none; color: #ccc; cursor: pointer; font-size: 16px; display: none; }
-
-        .petal { position: fixed; background: var(--sakura); border-radius: 150% 0 150% 0; z-index: 1; animation: fall linear infinite; opacity: 0.4; pointer-events: none; }
-        @keyframes fall { to { transform: translateY(100vh) rotate(360deg); } }
+        /* Холст для визуализатора */
+        #visualizer { width: 100%; height: 100px; border-radius: 15px; background: rgba(0,0,0,0.03); margin: 15px 0; }
+        
+        .track { background: var(--item); padding: 12px; border-radius: 15px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .version-tag { position: fixed; top: 10px; left: 10px; font-size: 10px; background: var(--accent); color: white; padding: 3px 8px; border-radius: 10px; }
+        .auth-bar { width: 95%; max-width: 500px; display: flex; justify-content: space-between; margin-top: 10px; }
+        input { width: 100%; padding: 10px; border: 2px solid var(--accent); border-radius: 15px; margin-bottom: 5px; background: var(--card); color: var(--text); }
+        .add-btn { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 20px; width: 100%; font-weight: bold; cursor: pointer; }
     </style>
 </head>
-<body>
+<body class="theme-sakura">
 
-<div class="version-tag">VER 1.5 (AUTH_UPDATE)</div>
-<div id="sakura-container"></div>
+<div class="version-tag">VER 1.7 (VISUALIZER)</div>
+<div id="particles"></div>
 
 <div class="auth-bar">
-    <img id="userImg" class="user-avatar" src="" alt="avatar">
-    <button id="authBtn" class="auth-btn" onclick="toggleAuth()">Войти через Google</button>
+    <select onchange="document.body.className = this.value; currentTheme = this.value;" style="border-radius:10px; padding:5px;">
+        <option value="theme-sakura">🌸 Sakura</option>
+        <option value="theme-void">🌑 Void</option>
+        <option value="theme-retro">💾 Retro</option>
+    </select>
+    <button onclick="toggleAuth()" id="authBtn" style="border-radius:10px; padding:5px 15px;">Login</button>
 </div>
 
 <div class="player-card">
-    <h1>🌸 SAKURA CLOUD</h1>
+    <h1 id="headerTitle">SAKURA CLOUD</h1>
     
-    <div id="addSection" class="add-section">
-        <input type="text" id="trackName" placeholder="Название трека...">
-        <input type="text" id="trackUrl" placeholder="Прямая ссылка (.mp3)...">
-        <button class="add-btn" onclick="addTrack()">ОПУБЛИКОВАТЬ ☁️</button>
+    <div id="addSection" style="display:none; background:rgba(0,0,0,0.02); padding:15px; border-radius:20px; margin-bottom:15px;">
+        <input type="text" id="trackName" placeholder="Название...">
+        <input type="text" id="trackUrl" placeholder="MP3 Link...">
+        <button class="add-btn" onclick="addTrack()">ОПУБЛИКОВАТЬ</button>
     </div>
 
-    <input type="text" id="searchInput" placeholder="🔍 Поиск..." oninput="updateUI()">
-    <div id="trackCount" style="font-size: 11px; margin-bottom: 10px; opacity: 0.7;">Загрузка...</div>
-
-    <audio id="audioPlayer" controls playsinline></audio>
-    <div class="playlist" id="playlist"></div>
+    <canvas id="visualizer"></canvas>
+    <audio id="audioPlayer" controls crossorigin="anonymous" style="width:100%"></audio>
+    
+    <div id="playlist" style="text-align:left; max-height:250px; overflow-y:auto; margin-top:20px;"></div>
 </div>
 
 <script>
@@ -75,104 +70,88 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const auth = firebase.auth();
-    const provider = new firebase.auth.GoogleAuthProvider();
+    let audioCtx, analyser, source, canvas, ctx;
+    let currentTheme = 'theme-sakura';
 
-    let allTracks = [];
-    let currentUser = null;
+    // Инициализация визуализатора
+    function initVisualizer() {
+        if (audioCtx) return;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioCtx.createAnalyser();
+        canvas = document.getElementById('visualizer');
+        ctx = canvas.getContext('2d');
+        
+        source = audioCtx.createMediaElementSource(document.getElementById('audioPlayer'));
+        source.connect(analyser);
+        analyser.connect(audioCtx.destination);
+        analyser.fftSize = 64;
+        
+        draw();
+    }
 
-    // Следим за пользователем
-    auth.onAuthStateChanged(user => {
-        currentUser = user;
-        const authBtn = document.getElementById('authBtn');
-        const userImg = document.getElementById('userImg');
-        const addSection = document.getElementById('addSection');
+    function draw() {
+        requestAnimationFrame(draw);
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        analyser.getByteFrequencyData(dataArray);
 
-        if (user) {
-            authBtn.innerText = "Выйти";
-            userImg.src = user.photoURL;
-            userImg.style.display = "block";
-            addSection.style.display = "block";
-        } else {
-            authBtn.innerText = "Войти через Google";
-            userImg.style.display = "none";
-            addSection.style.display = "none";
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const barWidth = (canvas.width / bufferLength) * 2.5;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+            const barHeight = dataArray[i] / 2.5;
+            const color = getComputedStyle(document.body).getPropertyValue('--viz');
+            ctx.fillStyle = color;
+            ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+            x += barWidth + 2;
         }
-        updateUI();
+    }
+
+    // Музыка и База
+    function playTrack(url) {
+        initVisualizer();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const p = document.getElementById('audioPlayer');
+        p.src = url;
+        p.play();
+    }
+
+    auth.onAuthStateChanged(user => {
+        document.getElementById('addSection').style.display = user ? 'block' : 'none';
+        document.getElementById('authBtn').innerText = user ? 'Logout' : 'Login';
+        loadTracks();
     });
 
     async function toggleAuth() {
-        if (currentUser) {
-            await auth.signOut();
-        } else {
-            await auth.signInWithPopup(provider);
-        }
+        const provider = new firebase.auth.GoogleAuthProvider();
+        auth.currentUser ? auth.signOut() : auth.signInWithPopup(provider);
     }
 
     function loadTracks() {
-        db.collection("music").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
-            allTracks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            updateUI();
-        });
-    }
-
-    function updateUI() {
-        let filtered = allTracks.filter(t => t.name.toLowerCase().includes(document.getElementById('searchInput').value.toLowerCase()));
-        document.getElementById('trackCount').innerText = `Треков в облаке: ${allTracks.length}`;
-        renderPlaylist(filtered);
-    }
-
-    function renderPlaylist(tracks) {
-        const container = document.getElementById('playlist');
-        container.innerHTML = tracks.length ? '' : 'Тут пусто...';
-        
-        tracks.forEach(t => {
-            const isOwner = currentUser && t.userId === currentUser.uid;
-            const div = document.createElement('div');
-            div.className = 'track' + (document.getElementById('audioPlayer').src === t.url ? ' playing' : '');
-            
-            div.innerHTML = `
-                <div class="track-info">
-                    <span>🎵 ${t.name}</span>
-                    <span class="author-info">залил: ${t.userName || 'Аноним'}</span>
-                </div>
-                ${isOwner ? '<button class="del-btn" style="display:block">✕</button>' : ''}
-            `;
-
-            div.querySelector('.track-info').onclick = () => {
-                const player = document.getElementById('audioPlayer');
-                player.src = t.url;
-                player.play();
-                updateUI();
-            };
-
-            if (isOwner) {
-                div.querySelector('.del-btn').onclick = async () => {
-                    if (confirm("Удалить свой трек?")) await db.collection("music").doc(t.id).delete();
-                };
-            }
-            container.appendChild(div);
+        db.collection("music").orderBy("createdAt", "desc").onSnapshot(snap => {
+            const container = document.getElementById('playlist');
+            container.innerHTML = '';
+            snap.docs.forEach(doc => {
+                const t = doc.data();
+                const div = document.createElement('div');
+                div.className = 'track';
+                div.innerHTML = `<div onclick="playTrack('${t.url}')"><b>${t.name}</b></div>`;
+                container.appendChild(div);
+            });
         });
     }
 
     async function addTrack() {
-        const name = document.getElementById('trackName').value;
-        const url = document.getElementById('trackUrl').value.trim();
-        if(!name || !url || !currentUser) return;
-        
-        await db.collection("music").add({
-            name: name,
-            url: url,
-            userId: currentUser.uid,
-            userName: currentUser.displayName,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        
-        document.getElementById('trackName').value = '';
-        document.getElementById('trackUrl').value = '';
+        const n = document.getElementById('trackName').value;
+        const u = document.getElementById('trackUrl').value;
+        if(n && u && auth.currentUser) {
+            await db.collection("music").add({
+                name: n, url: u, userId: auth.currentUser.uid,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
     }
-
-    loadTracks();
-    // (Анимация сакуры остается такой же)
 </script>
 </body>
 </html>
