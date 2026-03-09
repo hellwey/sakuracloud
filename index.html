@@ -2,196 +2,167 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>VOID_ISAAC_V2</title>
+    <title>VOID_ISAAC_ULTIMATE</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
-        body { margin: 0; background: #050505; color: #eee; font-family: 'Courier New', monospace; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        #ui { position: absolute; top: 20px; left: 20px; z-index: 10; font-size: 20px; text-shadow: 2px 2px #000; }
-        canvas { border: 5px solid #1a1a1a; background: #0d0d0d; box-shadow: 0 0 50px rgba(0,0,0,1); cursor: crosshair; }
-        #roomMsg { position: absolute; font-size: 60px; font-weight: bold; color: rgba(255,255,255,0.8); pointer-events: none; opacity: 0; transition: 0.5s; text-transform: uppercase; letter-spacing: 10px; }
-        .stat-bar { color: #ff4d4d; margin-bottom: 5px; }
+        body { margin: 0; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        #game-ui { position: absolute; top: 15px; left: 15px; color: #00ffcc; font-family: 'Courier New', monospace; z-index: 10; pointer-events: none; background: rgba(0,0,0,0.5); padding: 10px; border: 1px solid #333; }
+        #item-notif { position: absolute; bottom: 50px; width: 100%; text-align: center; color: #fff; font-size: 24px; font-family: monospace; text-transform: uppercase; letter-spacing: 5px; opacity: 0; transition: 1s; }
     </style>
 </head>
 <body>
 
-<div id="ui">
-    <div class="stat-bar" id="hpUI">❤️ HP: 3</div>
-    <div style="color: #4db8ff;" id="statsUI">DMG: 1 | SPD: 4</div>
+<div id="game-ui">
+    <div id="hpText">❤️ STATUS: STABLE (3/3)</div>
+    <div id="modText">MOD: NONE</div>
+    <div id="roomText">DEPTH: 1</div>
 </div>
-<div id="roomMsg">ROOM 1</div>
-<canvas id="gameCanvas"></canvas>
+<div id="item-notif">NEW MOD ACQUIRED</div>
 
 <script>
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const roomMsg = document.getElementById('roomMsg');
-
-// Настройки окна
-canvas.width = 800; canvas.height = 600;
-
-// Игрок и статы
-let player = { 
-    x: 400, y: 300, size: 18, hp: 3, maxHp: 3, 
-    speed: 4, dmg: 1, fireRate: 300, lastShot: 0, 
-    bulletSize: 5, color: '#fff'
+const config = {
+    type: Phaser.AUTO,
+    width: 800, height: 600,
+    backgroundColor: '#020202',
+    physics: { default: 'arcade', arcade: { gravity: { y: 0 } } },
+    scene: { preload, create, update }
 };
 
-let bullets = [], enemies = [], items = [], particles = [];
-let keys = {}, currentRoom = 1, roomActive = true;
+const game = new Phaser.Game(config);
+let player, bullets, enemies, items, lastFired = 0;
+let hp = 3, room = 1, currentMod = 'NORMAL';
 
-// Генератор предметов
-const prefixes = ["Void", "Cursed", "Ancient", "Neon", "Phantom", "Burning"];
-const roots = ["Eye", "Heart", "Tear", "Core", "Soul", "Blade"];
-
-function generateItem(x, y) {
-    const name = prefixes[Math.floor(Math.random()*prefixes.length)] + " " + roots[Math.floor(Math.random()*roots.length)];
-    return {
-        x, y, name, size: 12,
-        stats: {
-            dmg: Math.random() * 0.5,
-            speed: Math.random() * 0.3,
-            fireRate: -(Math.random() * 20),
-            bulletSize: Math.random() * 2
-        }
-    };
+function preload() {
+    let g = this.make.graphics({x: 0, y: 0, add: false});
+    // Спрайт игрока
+    g.fillStyle(0xffffff).fillCircle(10, 10, 10).generateTexture('player', 20, 20);
+    // Спрайт врага
+    g.clear().fillStyle(0xff3333).fillRect(0, 0, 18, 18).generateTexture('enemy', 18, 18);
+    // Спрайт пули
+    g.clear().fillStyle(0x00ffcc).fillCircle(4, 4, 4).generateTexture('bullet', 8, 8);
+    // Спрайт артефакта
+    g.clear().fillStyle(0xffcc00).fillStar(10, 10, 5, 10, 5).generateTexture('item', 20, 20);
 }
 
-// Управление
-window.onkeydown = (e) => keys[e.code] = true;
-window.onkeyup = (e) => keys[e.code] = false;
+function create() {
+    player = this.physics.add.sprite(400, 300, 'player').setDrag(1200).setCollideWorldBounds(true);
+    
+    this.keys = this.input.keyboard.addKeys('W,A,S,D');
+    this.shootKeys = this.input.keyboard.createCursorKeys();
+
+    bullets = this.physics.add.group({ defaultKey: 'bullet' });
+    enemies = this.physics.add.group();
+    items = this.physics.add.group();
+
+    this.physics.add.overlap(bullets, enemies, (b, e) => { b.destroy(); e.destroy(); checkRoom.call(this); }, null, this);
+    this.physics.add.overlap(player, items, pickItem, null, this);
+    this.physics.add.collider(player, enemies, () => { hp -= 0.02; updateUI(); if(hp <= 0) location.reload(); });
+
+    spawnRoom.call(this);
+}
+
+function update(time) {
+    // Движение
+    const speed = 280;
+    player.setVelocity(0);
+    if (this.keys.A.isDown) player.setVelocityX(-speed);
+    if (this.keys.D.isDown) player.setVelocityX(speed);
+    if (this.keys.W.isDown) player.setVelocityY(-speed);
+    if (this.keys.S.isDown) player.setVelocityY(speed);
+
+    // Стрельба
+    if (time > lastFired) {
+        let dir = null;
+        if (this.shootKeys.left.isDown) dir = {x:-450, y:0};
+        else if (this.shootKeys.right.isDown) dir = {x:450, y:0};
+        else if (this.shootKeys.up.isDown) dir = {x:0, y:-450};
+        else if (this.shootKeys.down.isDown) dir = {x:0, y:450};
+
+        if (dir) {
+            fire(this, dir, time);
+            lastFired = time + 250;
+        }
+    }
+
+    // Модификатор: Самонаводка (Homing)
+    if (currentMod === 'HOMING') {
+        bullets.getChildren().forEach(b => {
+            let target = enemies.getFirstAlive();
+            if (target) this.physics.moveToObject(b, target, 500);
+        });
+    }
+
+    // Модификатор: Орбита
+    if (currentMod === 'ORBIT') {
+        bullets.getChildren().forEach((b, i) => {
+            if (!b.angleOffset) b.angleOffset = i * 0.5;
+            b.angleOffset += 0.1;
+            b.x = player.x + Math.cos(b.angleOffset) * 80;
+            b.y = player.y + Math.sin(b.angleOffset) * 80;
+        });
+    }
+
+    enemies.getChildren().forEach(e => this.physics.moveToObject(e, player, 120 + room * 5));
+}
+
+function fire(scene, dir, time) {
+    let b = bullets.create(player.x, player.y, 'bullet');
+    if (!b) return;
+
+    if (currentMod === 'SPIRAL') {
+        scene.tweens.add({
+            targets: b.body.velocity,
+            x: { from: dir.x, to: dir.y },
+            y: { from: dir.y, to: -dir.x },
+            duration: 1000,
+            yoyo: true, repeat: -1
+        });
+    } else {
+        b.setVelocity(dir.x, dir.y);
+    }
+
+    if (currentMod === 'BOUNCE') {
+        b.setBounce(1).setCollideWorldBounds(true);
+        scene.time.delayedCall(3000, () => b.destroy());
+    } else {
+        scene.time.delayedCall(1500, () => b.destroy());
+    }
+}
 
 function spawnRoom() {
-    roomActive = true;
-    enemies = [];
-    bullets = [];
-    player.x = 400; player.y = 300;
+    for (let i = 0; i < 3 + room; i++) {
+        let ex = Phaser.Math.Between(100, 700), ey = Phaser.Math.Between(100, 500);
+        if (Phaser.Math.Distance.Between(ex, ey, player.x, player.y) < 150) { i--; continue; }
+        enemies.create(ex, ey, 'enemy').setTint(0xff6666);
+    }
+}
+
+function checkRoom() {
+    if (enemies.countActive() === 0) {
+        room++;
+        if (Math.random() < 0.4) items.create(400, 300, 'item');
+        updateUI();
+        spawnRoom.call(this);
+    }
+}
+
+function pickItem(p, item) {
+    item.destroy();
+    const mods = ['HOMING', 'ORBIT', 'SPIRAL', 'BOUNCE'];
+    currentMod = mods[Math.floor(Math.random() * mods.length)];
     
-    // Анимация текста комнаты
-    roomMsg.innerText = `ROOM ${currentRoom}`;
-    roomMsg.style.opacity = "1";
-    setTimeout(() => roomMsg.style.opacity = "0", 1500);
-
-    // Больше врагов с каждой комнатой
-    const count = 3 + Math.floor(currentRoom * 1.5);
-    for(let i=0; i<count; i++) {
-        enemies.push({
-            x: Math.random() < 0.5 ? 50 : 750,
-            y: Math.random() * 500 + 50,
-            size: 15 + Math.random() * 10,
-            hp: 2 + (currentRoom * 0.5),
-            speed: 1 + Math.random() * (currentRoom * 0.1),
-            color: `hsl(${Math.random()*360}, 70%, 50%)`
-        });
-    }
+    let notif = document.getElementById('item-notif');
+    notif.innerText = `ACQUIRED: ${currentMod} MOD`;
+    notif.style.opacity = '1';
+    setTimeout(() => notif.style.opacity = '0', 2000);
+    updateUI();
 }
 
-function update() {
-    // Движение
-    if (keys['KeyW'] && player.y > 30) player.y -= player.speed;
-    if (keys['KeyS'] && player.y < 570) player.y += player.speed;
-    if (keys['KeyA'] && player.x > 30) player.x -= player.speed;
-    if (keys['KeyD'] && player.x < 770) player.x += player.speed;
-
-    // Стрельба (Стрелки)
-    if (keys['ArrowUp']) shoot(0, -7);
-    if (keys['ArrowDown']) shoot(0, 7);
-    if (keys['ArrowLeft']) shoot(-7, 0);
-    if (keys['ArrowRight']) shoot(7, 0);
-
-    // Пули
-    bullets.forEach((b, i) => {
-        b.x += b.vx; b.y += b.vy;
-        if (b.x<0 || b.x>800 || b.y<0 || b.y>600) bullets.splice(i, 1);
-        enemies.forEach((en, ei) => {
-            if (Math.hypot(b.x - en.x, b.y - en.y) < en.size) {
-                en.hp -= player.dmg;
-                bullets.splice(i, 1);
-                if (en.hp <= 0) {
-                    if (Math.random() < 0.2) items.push(generateItem(en.x, en.y));
-                    enemies.splice(ei, 1);
-                }
-            }
-        });
-    });
-
-    // Враги
-    enemies.forEach(en => {
-        let angle = Math.atan2(player.y - en.y, player.x - en.x);
-        en.x += Math.cos(angle) * en.speed;
-        en.y += Math.sin(angle) * en.speed;
-        if (Math.hypot(player.x - en.x, player.y - en.y) < player.size + en.size) {
-            player.hp -= 0.02; // Урон
-            if (player.hp <= 0) location.reload(); // Сброс при смерти
-        }
-    });
-
-    // Предметы
-    items.forEach((it, i) => {
-        if (Math.hypot(player.x - it.x, player.y - it.y) < player.size + it.size) {
-            player.dmg += it.stats.dmg;
-            player.speed += it.stats.speed;
-            player.fireRate += it.stats.fireRate;
-            player.bulletSize += it.stats.bulletSize;
-            items.splice(i, 1);
-        }
-    });
-
-    // UI Update
-    document.getElementById('hpUI').innerText = `❤️ HP: ${Math.ceil(player.hp)}`;
-    document.getElementById('statsUI').innerText = `DMG: ${player.dmg.toFixed(1)} | SPD: ${player.speed.toFixed(1)}`;
-
-    if (enemies.length === 0 && roomActive) {
-        currentRoom++;
-        spawnRoom();
-    }
+function updateUI() {
+    document.getElementById('hpText').innerText = `❤️ STATUS: ${hp <= 1 ? 'CRITICAL' : 'STABLE'} (${Math.ceil(hp)}/3)`;
+    document.getElementById('modText').innerText = `MOD: ${currentMod}`;
+    document.getElementById('roomText').innerText = `DEPTH: ${room}`;
 }
-
-function shoot(vx, vy) {
-    if (Date.now() - player.lastShot < player.fireRate) return;
-    bullets.push({ x: player.x, y: player.y, vx, vy });
-    player.lastShot = Date.now();
-}
-
-function draw() {
-    ctx.fillStyle = '#0d0d0d';
-    ctx.fillRect(0, 0, 800, 600);
-
-    // Рисуем пол (дизайн комнаты)
-    ctx.strokeStyle = '#1a1a1a';
-    for(let i=0; i<800; i+=40) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,600); ctx.stroke(); }
-    for(let i=0; i<600; i+=40) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(800,i); ctx.stroke(); }
-
-    // Игрок
-    ctx.fillStyle = player.color;
-    ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle = '#4db8ff'; ctx.lineWidth = 3; ctx.stroke();
-
-    // Враги
-    enemies.forEach(en => {
-        ctx.fillStyle = en.color;
-        ctx.beginPath(); ctx.arc(en.x, en.y, en.size, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.arc(en.x, en.y, en.size/2, 0, Math.PI, true); ctx.fill();
-    });
-
-    // Пули
-    ctx.fillStyle = '#4db8ff';
-    bullets.forEach(b => {
-        ctx.beginPath(); ctx.arc(b.x, b.y, player.bulletSize, 0, Math.PI*2); ctx.fill();
-    });
-
-    // Предметы
-    items.forEach(it => {
-        ctx.fillStyle = '#ffcc00';
-        ctx.beginPath(); ctx.arc(it.x, it.y, it.size, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = '#fff'; ctx.font = '12px Arial'; ctx.fillText(it.name, it.x - 30, it.y - 20);
-    });
-
-    update();
-    requestAnimationFrame(draw);
-}
-
-spawnRoom();
-draw();
 </script>
 </body>
 </html>
