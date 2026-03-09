@@ -3,17 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VOID_RUNNER_BEST</title>
+    <title>VOID_SLOTS_RUNNER</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
-        #ui { position: absolute; top: 5%; width: 100%; text-align: center; color: #0ff; font-family: 'Arial Black'; font-size: 45px; z-index: 10; pointer-events: none; text-shadow: 0 0 15px #0ff; }
-        #best-ui { position: absolute; top: 15%; width: 100%; text-align: center; color: rgba(0, 255, 255, 0.5); font-family: monospace; font-size: 16px; z-index: 10; pointer-events: none; }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: 'Arial Black', sans-serif; }
+        #ui { position: absolute; top: 10px; width: 100%; display: flex; justify-content: space-around; color: #0ff; z-index: 10; pointer-events: none; }
+        #slot-btn { position: absolute; bottom: 20px; right: 20px; width: 100px; height: 100px; background: #ff0; border-radius: 50%; border: 5px solid #fff; display: flex; justify-content: center; align-items: center; color: #000; font-size: 14px; font-weight: bold; box-shadow: 0 0 20px #ff0; cursor: pointer; }
+        #status { position: absolute; top: 80px; width: 100%; text-align: center; color: #fff; font-size: 20px; text-transform: uppercase; }
     </style>
 </head>
 <body>
-<div id="ui">0</div>
-<div id="best-ui">BEST: 0</div>
+
+<div id="ui">
+    <div id="score">SCORE: 0</div>
+    <div id="coins">💰: 0</div>
+    <div id="best">BEST: 0</div>
+</div>
+<div id="status">READY TO DEPOSIT?</div>
+<div id="slot-btn" onclick="spinSlots()">DEPOSIT<br>10 COINS</div>
+
 <script>
 const config = {
     type: Phaser.AUTO,
@@ -23,71 +31,85 @@ const config = {
 };
 
 const game = new Phaser.Game(config);
-let player, platforms, obstacles, score = 0, gameSpeed = 500, nextSpawn = 0, jumpCount = 0;
-let bestScore = localStorage.getItem('voidRunnerBest') || 0;
+let player, platforms, obstacles, coins, score = 0, coinCount = 0, gameSpeed = 500, nextSpawn = 0, jumpCount = 0;
+let bestScore = localStorage.getItem('voidCasinoBest') || 0;
+let isInvulnerable = false;
 
 function preload() {
     let g = this.make.graphics({x: 0, y: 0, add: false});
-    g.fillStyle(0x00ffff).fillRect(0, 0, 32, 32).lineStyle(2, 0xffffff).strokeRect(0, 0, 32, 32).generateTexture('player', 32, 32);
-    g.clear().fillStyle(0x111111).fillRect(0, 0, 100, 400).lineStyle(3, 0x00ffff).strokeRect(0, 0, 100, 400).generateTexture('block', 100, 400);
+    g.fillStyle(0x00ffff).fillRect(0, 0, 32, 32).generateTexture('player', 32, 32);
+    g.clear().fillStyle(0x111111).fillRect(0, 0, 100, 400).generateTexture('block', 100, 400);
     g.clear().fillStyle(0xff0055).fillTriangle(0, 30, 15, 0, 30, 30).generateTexture('spike', 30, 30);
+    g.clear().fillStyle(0xffff00).fillCircle(10, 10, 10).generateTexture('coin', 20, 20);
 }
 
 function create() {
-    document.getElementById('best-ui').innerText = `BEST: ${bestScore}`;
+    document.getElementById('best').innerText = `BEST: ${bestScore}`;
     platforms = this.physics.add.group({ allowGravity: false, immovable: true });
     obstacles = this.physics.add.group({ allowGravity: false });
+    coins = this.physics.add.group({ allowGravity: false });
 
-    let start = platforms.create(150, 400, 'block');
-    start.setDisplaySize(500, 400); start.refreshBody();
+    platforms.create(150, 400, 'block').setDisplaySize(500, 400).refreshBody();
 
     player = this.physics.add.sprite(150, 200, 'player');
     this.physics.add.collider(player, platforms, () => { if(player.body.touching.down) jumpCount = 0; });
-    this.physics.add.overlap(player, obstacles, handleDie, null, this);
+    this.physics.add.overlap(player, obstacles, () => { if(!isInvulnerable) location.reload(); });
+    this.physics.add.overlap(player, coins, collectCoin, null, this);
 
-    this.input.on('pointerdown', jump);
-    this.input.keyboard.on('keydown-SPACE', jump);
+    this.input.on('pointerdown', (p) => { if(p.x < 600) jump(); });
 }
 
-function jump() {
-    if (jumpCount < 3) {
-        player.setVelocityY(-650);
-        jumpCount++;
-    }
+function jump() { if (jumpCount < 3) { player.setVelocityY(-650); jumpCount++; } }
+
+function collectCoin(p, c) { c.destroy(); coinCount++; updateUI(); }
+
+function spinSlots() {
+    if (coinCount < 10) return;
+    coinCount -= 10;
+    updateUI();
+    
+    const results = ['JACKPOT', 'SLOWMO', 'SHIELD', 'SCAM'];
+    const res = results[Math.floor(Math.random() * results.length)];
+    document.getElementById('status').innerText = "ROLLING... " + res;
+
+    if (res === 'JACKPOT') score += 10000;
+    if (res === 'SHIELD') { isInvulnerable = true; player.setAlpha(0.5); setTimeout(() => { isInvulnerable = false; player.setAlpha(1); }, 5000); }
+    if (res === 'SLOWMO') { gameSpeed -= 200; setTimeout(() => { gameSpeed += 200; }, 5000); }
+    if (res === 'SCAM') { gameSpeed += 300; }
 }
 
 function update(time) {
     if (time > nextSpawn) {
-        const x = 900;
-        const h = Phaser.Math.Between(320, 460);
-        const w = Phaser.Math.Between(130, 350);
-        
+        const x = 900, h = Phaser.Math.Between(320, 460), w = Phaser.Math.Between(150, 400);
         let p = platforms.create(x, h, 'block');
-        p.setDisplaySize(w, 400); p.body.updateFromDisplaySize();
-        p.setVelocityX(-gameSpeed);
+        p.setDisplaySize(w, 400); p.body.updateFromDisplaySize(); p.setVelocityX(-gameSpeed);
 
-        if (Math.random() > 0.45) {
-            let s = obstacles.create(x + Phaser.Math.Between(-w/4, w/4), h - 215, 'spike');
+        if (Math.random() > 0.5) {
+            let s = obstacles.create(x + Phaser.Math.Between(-w/3, w/3), h - 215, 'spike');
             s.setVelocityX(-gameSpeed);
         }
-        nextSpawn = time + Phaser.Math.Between(800, 1600) / (gameSpeed/500);
+        if (Math.random() > 0.3) {
+            let c = coins.create(x + Phaser.Math.Between(-w/3, w/3), h - 230, 'coin');
+            c.setVelocityX(-gameSpeed);
+        }
+        nextSpawn = time + Phaser.Math.Between(800, 1500) / (gameSpeed/500);
     }
-
-    platforms.getChildren().forEach(p => { if(p.x < -200) p.destroy(); });
+    
+    platforms.getChildren().forEach(o => { if(o.x < -200) o.destroy(); });
     obstacles.getChildren().forEach(o => { if(o.x < -200) o.destroy(); });
+    coins.getChildren().forEach(o => { if(o.x < -200) o.destroy(); });
 
-    if (player.y > 500) handleDie();
+    if (player.y > 500) { handleDie(); }
+    score += 1; gameSpeed += 0.03; updateUI();
+}
 
-    score += 1;
-    gameSpeed += 0.045;
-    document.getElementById('ui').innerText = Math.floor(score / 10);
+function updateUI() {
+    document.getElementById('score').innerText = `SCORE: ${Math.floor(score/10)}`;
+    document.getElementById('coins').innerText = `💰: ${coinCount}`;
 }
 
 function handleDie() {
-    let finalScore = Math.floor(score / 10);
-    if (finalScore > bestScore) {
-        localStorage.setItem('voidRunnerBest', finalScore);
-    }
+    if (Math.floor(score/10) > bestScore) localStorage.setItem('voidCasinoBest', Math.floor(score/10));
     location.reload();
 }
 </script>
