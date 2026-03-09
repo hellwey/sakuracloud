@@ -2,138 +2,196 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VOID_RUNNER_BETA</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>VOID_ISAAC_V2</title>
     <style>
-        body { margin: 0; background: #0a0a0a; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
-        canvas { border: 4px solid #333; box-shadow: 0 0 20px rgba(255,255,255,0.1); background: #111; max-width: 100%; max-height: 80vh; }
-        .stats { margin-bottom: 10px; font-size: 18px; color: #ff4d4d; }
-        .controls { margin-top: 10px; font-size: 12px; opacity: 0.5; }
+        body { margin: 0; background: #050505; color: #eee; font-family: 'Courier New', monospace; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        #ui { position: absolute; top: 20px; left: 20px; z-index: 10; font-size: 20px; text-shadow: 2px 2px #000; }
+        canvas { border: 5px solid #1a1a1a; background: #0d0d0d; box-shadow: 0 0 50px rgba(0,0,0,1); cursor: crosshair; }
+        #roomMsg { position: absolute; font-size: 60px; font-weight: bold; color: rgba(255,255,255,0.8); pointer-events: none; opacity: 0; transition: 0.5s; text-transform: uppercase; letter-spacing: 10px; }
+        .stat-bar { color: #ff4d4d; margin-bottom: 5px; }
     </style>
 </head>
 <body>
 
-<div class="stats">HP: <span id="hp">3</span> | ROOM: <span id="room">1</span></div>
-<canvas id="gameCanvas" width="600" height="400"></canvas>
-<div class="controls">WASD - Move | ARROWS - Shoot</div>
+<div id="ui">
+    <div class="stat-bar" id="hpUI">❤️ HP: 3</div>
+    <div style="color: #4db8ff;" id="statsUI">DMG: 1 | SPD: 4</div>
+</div>
+<div id="roomMsg">ROOM 1</div>
+<canvas id="gameCanvas"></canvas>
 
 <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const hpDisplay = document.getElementById('hp');
-    const roomDisplay = document.getElementById('room');
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const roomMsg = document.getElementById('roomMsg');
 
-    let player = { x: 300, y: 200, size: 20, hp: 3, speed: 4 };
-    let bullets = [];
-    let enemies = [];
-    let currentRoom = 1;
-    let keys = {};
+// Настройки окна
+canvas.width = 800; canvas.height = 600;
 
-    // Управление
-    window.onkeydown = (e) => keys[e.code] = true;
-    window.onkeyup = (e) => keys[e.code] = false;
+// Игрок и статы
+let player = { 
+    x: 400, y: 300, size: 18, hp: 3, maxHp: 3, 
+    speed: 4, dmg: 1, fireRate: 300, lastShot: 0, 
+    bulletSize: 5, color: '#fff'
+};
 
-    function spawnEnemies() {
-        enemies = [];
-        for(let i = 0; i < currentRoom + 2; i++) {
-            enemies.push({
-                x: Math.random() * (canvas.width - 40) + 20,
-                y: Math.random() * (canvas.height - 40) + 20,
-                size: 15,
-                hp: 2,
-                speed: 1 + (currentRoom * 0.1)
-            });
+let bullets = [], enemies = [], items = [], particles = [];
+let keys = {}, currentRoom = 1, roomActive = true;
+
+// Генератор предметов
+const prefixes = ["Void", "Cursed", "Ancient", "Neon", "Phantom", "Burning"];
+const roots = ["Eye", "Heart", "Tear", "Core", "Soul", "Blade"];
+
+function generateItem(x, y) {
+    const name = prefixes[Math.floor(Math.random()*prefixes.length)] + " " + roots[Math.floor(Math.random()*roots.length)];
+    return {
+        x, y, name, size: 12,
+        stats: {
+            dmg: Math.random() * 0.5,
+            speed: Math.random() * 0.3,
+            fireRate: -(Math.random() * 20),
+            bulletSize: Math.random() * 2
         }
-    }
+    };
+}
 
-    function update() {
-        // Движение игрока
-        if (keys['KeyW'] && player.y > player.size) player.y -= player.speed;
-        if (keys['KeyS'] && player.y < canvas.height - player.size) player.y += player.speed;
-        if (keys['KeyA'] && player.x > player.size) player.x -= player.speed;
-        if (keys['KeyD'] && player.x < canvas.width - player.size) player.x += player.speed;
+// Управление
+window.onkeydown = (e) => keys[e.code] = true;
+window.onkeyup = (e) => keys[e.code] = false;
 
-        // Стрельба (Стрелочки)
-        if (keys['ArrowUp']) shoot(0, -5);
-        if (keys['ArrowDown']) shoot(0, 5);
-        if (keys['ArrowLeft']) shoot(-5, 0);
-        if (keys['ArrowRight']) shoot(5, 0);
+function spawnRoom() {
+    roomActive = true;
+    enemies = [];
+    bullets = [];
+    player.x = 400; player.y = 300;
+    
+    // Анимация текста комнаты
+    roomMsg.innerText = `ROOM ${currentRoom}`;
+    roomMsg.style.opacity = "1";
+    setTimeout(() => roomMsg.style.opacity = "0", 1500);
 
-        // Пули
-        bullets.forEach((b, i) => {
-            b.x += b.vx;
-            b.y += b.vy;
-            if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) bullets.splice(i, 1);
-            
-            // Попадание во врагов
-            enemies.forEach((en, ei) => {
-                let dist = Math.hypot(b.x - en.x, b.y - en.y);
-                if (dist < en.size) {
-                    en.hp--;
-                    bullets.splice(i, 1);
-                    if (en.hp <= 0) enemies.splice(ei, 1);
-                }
-            });
+    // Больше врагов с каждой комнатой
+    const count = 3 + Math.floor(currentRoom * 1.5);
+    for(let i=0; i<count; i++) {
+        enemies.push({
+            x: Math.random() < 0.5 ? 50 : 750,
+            y: Math.random() * 500 + 50,
+            size: 15 + Math.random() * 10,
+            hp: 2 + (currentRoom * 0.5),
+            speed: 1 + Math.random() * (currentRoom * 0.1),
+            color: `hsl(${Math.random()*360}, 70%, 50%)`
         });
+    }
+}
 
-        // Враги (преследование)
-        enemies.forEach(en => {
-            let dx = player.x - en.x;
-            let dy = player.y - en.y;
-            let angle = Math.atan2(dy, dx);
-            en.x += Math.cos(angle) * en.speed;
-            en.y += Math.sin(angle) * en.speed;
+function update() {
+    // Движение
+    if (keys['KeyW'] && player.y > 30) player.y -= player.speed;
+    if (keys['KeyS'] && player.y < 570) player.y += player.speed;
+    if (keys['KeyA'] && player.x > 30) player.x -= player.speed;
+    if (keys['KeyD'] && player.x < 770) player.x += player.speed;
 
-            // Урон игроку
-            if (Math.hypot(player.x - en.x, player.y - en.y) < player.size) {
-                player.hp -= 0.01; // Плавное падение HP
-                hpDisplay.innerText = Math.ceil(player.hp);
-                if (player.hp <= 0) location.reload();
+    // Стрельба (Стрелки)
+    if (keys['ArrowUp']) shoot(0, -7);
+    if (keys['ArrowDown']) shoot(0, 7);
+    if (keys['ArrowLeft']) shoot(-7, 0);
+    if (keys['ArrowRight']) shoot(7, 0);
+
+    // Пули
+    bullets.forEach((b, i) => {
+        b.x += b.vx; b.y += b.vy;
+        if (b.x<0 || b.x>800 || b.y<0 || b.y>600) bullets.splice(i, 1);
+        enemies.forEach((en, ei) => {
+            if (Math.hypot(b.x - en.x, b.y - en.y) < en.size) {
+                en.hp -= player.dmg;
+                bullets.splice(i, 1);
+                if (en.hp <= 0) {
+                    if (Math.random() < 0.2) items.push(generateItem(en.x, en.y));
+                    enemies.splice(ei, 1);
+                }
             }
         });
+    });
 
-        // Переход в новую комнату
-        if (enemies.length === 0) {
-            currentRoom++;
-            roomDisplay.innerText = currentRoom;
-            player.x = 300; player.y = 200;
-            spawnEnemies();
+    // Враги
+    enemies.forEach(en => {
+        let angle = Math.atan2(player.y - en.y, player.x - en.x);
+        en.x += Math.cos(angle) * en.speed;
+        en.y += Math.sin(angle) * en.speed;
+        if (Math.hypot(player.x - en.x, player.y - en.y) < player.size + en.size) {
+            player.hp -= 0.02; // Урон
+            if (player.hp <= 0) location.reload(); // Сброс при смерти
         }
+    });
+
+    // Предметы
+    items.forEach((it, i) => {
+        if (Math.hypot(player.x - it.x, player.y - it.y) < player.size + it.size) {
+            player.dmg += it.stats.dmg;
+            player.speed += it.stats.speed;
+            player.fireRate += it.stats.fireRate;
+            player.bulletSize += it.stats.bulletSize;
+            items.splice(i, 1);
+        }
+    });
+
+    // UI Update
+    document.getElementById('hpUI').innerText = `❤️ HP: ${Math.ceil(player.hp)}`;
+    document.getElementById('statsUI').innerText = `DMG: ${player.dmg.toFixed(1)} | SPD: ${player.speed.toFixed(1)}`;
+
+    if (enemies.length === 0 && roomActive) {
+        currentRoom++;
+        spawnRoom();
     }
+}
 
-    function shoot(vx, vy) {
-        if (Date.now() - (player.lastShot || 0) < 250) return;
-        bullets.push({ x: player.x, y: player.y, vx, vy });
-        player.lastShot = Date.now();
-    }
+function shoot(vx, vy) {
+    if (Date.now() - player.lastShot < player.fireRate) return;
+    bullets.push({ x: player.x, y: player.y, vx, vy });
+    player.lastShot = Date.now();
+}
 
-    function draw() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+function draw() {
+    ctx.fillStyle = '#0d0d0d';
+    ctx.fillRect(0, 0, 800, 600);
 
-        // Игрок (Голова)
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
-        ctx.fill();
+    // Рисуем пол (дизайн комнаты)
+    ctx.strokeStyle = '#1a1a1a';
+    for(let i=0; i<800; i+=40) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,600); ctx.stroke(); }
+    for(let i=0; i<600; i+=40) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(800,i); ctx.stroke(); }
 
-        // Пули
-        ctx.fillStyle = '#00ffff';
-        bullets.forEach(b => {
-            ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI*2); ctx.fill();
-        });
+    // Игрок
+    ctx.fillStyle = player.color;
+    ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#4db8ff'; ctx.lineWidth = 3; ctx.stroke();
 
-        // Враги
-        ctx.fillStyle = '#ff4d4d';
-        enemies.forEach(en => {
-            ctx.beginPath(); ctx.arc(en.x, en.y, en.size, 0, Math.PI*2); ctx.fill();
-        });
+    // Враги
+    enemies.forEach(en => {
+        ctx.fillStyle = en.color;
+        ctx.beginPath(); ctx.arc(en.x, en.y, en.size, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.arc(en.x, en.y, en.size/2, 0, Math.PI, true); ctx.fill();
+    });
 
-        update();
-        requestAnimationFrame(draw);
-    }
+    // Пули
+    ctx.fillStyle = '#4db8ff';
+    bullets.forEach(b => {
+        ctx.beginPath(); ctx.arc(b.x, b.y, player.bulletSize, 0, Math.PI*2); ctx.fill();
+    });
 
-    spawnEnemies();
-    draw();
+    // Предметы
+    items.forEach(it => {
+        ctx.fillStyle = '#ffcc00';
+        ctx.beginPath(); ctx.arc(it.x, it.y, it.size, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.font = '12px Arial'; ctx.fillText(it.name, it.x - 30, it.y - 20);
+    });
+
+    update();
+    requestAnimationFrame(draw);
+}
+
+spawnRoom();
+draw();
 </script>
 </body>
 </html>
