@@ -2,143 +2,125 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>NEON_RIDER_V2_HARDCORE</title>
+    <title>NEON_RUNNER_PRO</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #0ff; font-family: 'Arial Black'; z-index: 10; pointer-events: none; }
-        #score { font-size: 50px; text-shadow: 0 0 15px #0ff; }
-        #best { font-size: 15px; color: #f0f; }
+        #ui { position: absolute; top: 20px; color: #fff; font-family: 'Arial Black'; font-size: 40px; z-index: 10; pointer-events: none; text-shadow: 0 0 20px #ff00ff; }
     </style>
 </head>
 <body>
 
-<div id="ui">
-    <div id="score">0</div>
-    <div id="best">BEST: 0</div>
-</div>
+<div id="ui">0</div>
 
 <script>
 const config = {
     type: Phaser.AUTO,
-    width: 800, height: 600,
-    backgroundColor: '#020202',
-    physics: { default: 'arcade', arcade: { gravity: { y: 1500 } } },
+    width: 800, height: 400,
+    backgroundColor: '#050505',
+    physics: { default: 'arcade', arcade: { gravity: { y: 1200 }, debug: false } },
     scene: { preload, create, update }
 };
 
 const game = new Phaser.Game(config);
-let player, ground, cursors, obstacles;
-let score = 0, bestScore = localStorage.getItem('riderBest') || 0;
-let points = [{x: 0, y: 500}, {x: 200, y: 500}];
-let nextX = 400, isRotating = false;
+let player, platforms, obstacles, cursors, emitter;
+let score = 0, gameSpeed = 400, canDoubleJump = false;
 
 function preload() {
     let g = this.make.graphics({x: 0, y: 0, add: false});
-    // Байк
-    g.fillStyle(0x00ffff).fillRect(0, 0, 40, 10);
-    g.generateTexture('bike', 40, 10);
-    // Пила
-    g.clear().lineStyle(2, 0xff0000).strokeCircle(15, 15, 15);
-    g.moveTo(0, 15).lineTo(30, 15).moveTo(15, 0).lineTo(15, 30).strokePath();
-    g.generateTexture('saw', 30, 30);
+    
+    // Игрок (светящийся куб)
+    g.fillStyle(0x00ffff).fillRect(0, 0, 30, 30);
+    g.generateTexture('player', 30, 30);
+    
+    // Земля
+    g.clear().fillStyle(0x333333).fillRect(0, 0, 800, 50);
+    g.generateTexture('ground', 800, 50);
+    
+    // Шип (препятствие)
+    g.clear().fillStyle(0xff0055);
+    g.fillTriangle(0, 30, 15, 0, 30, 30);
+    g.generateTexture('spike', 30, 30);
+
+    // Партиклы
+    g.clear().fillStyle(0x00ffff).fillCircle(2, 2, 2);
+    g.generateTexture('dot', 4, 4);
 }
 
 function create() {
-    document.getElementById('best').innerText = `BEST: ${bestScore}`;
-    
-    player = this.physics.add.sprite(100, 300, 'bike');
-    player.setDragX(50).setMaxVelocity(700, 1000);
+    // Земля (статичная группа)
+    platforms = this.physics.add.staticGroup();
+    platforms.create(400, 380, 'ground').refreshBody();
 
-    ground = this.add.graphics();
+    // Игрок
+    player = this.physics.add.sprite(100, 300, 'player');
+    player.setCollideWorldBounds(true);
+    
+    // Частицы за игроком
+    emitter = this.add.particles(0, 0, 'dot', {
+        speed: 100, scale: { start: 1, end: 0 }, lifespan: 400, blendMode: 'ADD'
+    });
+    emitter.startFollow(player);
+
+    // Группа препятствий
     obstacles = this.physics.add.group();
 
-    this.cameras.main.startFollow(player, true, 0.1, 0.1, -200, 100);
-    this.cameras.main.setZoom(0.8);
+    // Коллизии
+    this.physics.add.collider(player, platforms);
+    this.physics.add.overlap(player, obstacles, hitObstacle, null, this);
 
+    // Управление
     cursors = this.input.keyboard.createCursorKeys();
-    this.input.on('pointerdown', () => isRotating = true);
-    this.input.on('pointerup', () => isRotating = false);
+    this.input.on('pointerdown', jump, this);
+
+    // Таймер спавна шипов
+    this.spawnTimer = this.time.addEvent({
+        delay: 1500, callback: spawnSpike, callbackScope: this, loop: true
+    });
 }
 
-function addSegment() {
-    let last = points[points.length-1];
-    let type = Math.random();
-    let newX = last.x + 150;
-    let newY = last.y + (Math.random() * 160 - 80);
-    newY = Phaser.Math.Clamp(newY, 250, 550);
+function spawnSpike() {
+    let spike = obstacles.create(900, 340, 'spike');
+    spike.setVelocityX(-gameSpeed);
+    spike.body.setAllowGravity(false);
+}
 
-    // Ловушка
-    if (type > 0.85) {
-        let saw = obstacles.create(newX, newY - 40, 'saw');
-        saw.body.setAllowGravity(false).setAngularVelocity(300);
+function jump() {
+    if (player.body.touching.down) {
+        player.setVelocityY(-550);
+        canDoubleJump = true;
+    } else if (canDoubleJump) {
+        player.setVelocityY(-450);
+        canDoubleJump = false;
+        this.cameras.main.shake(100, 0.01); // Тряска при дабл-джампе
     }
-    
-    points.push({x: newX, y: newY});
 }
 
 function update() {
-    // Движение вперед
-    player.setVelocityX(400 + (score / 100));
+    if (cursors.space.isDown && player.body.touching.down) jump.call(this);
 
-    // Трюки и Сальто
-    if (cursors.space.isDown || isRotating) {
-        player.setAngularVelocity(350);
-        score += 2;
-    } else {
-        player.setAngularVelocity(0);
-    }
+    // Удаление улетевших шипов
+    obstacles.getChildren().forEach(spike => {
+        if (spike.x < -50) spike.destroy();
+    });
 
-    // Фиксация на земле (Анти-проваливание)
-    let onGround = false;
-    for (let i = 0; i < points.length - 1; i++) {
-        let p1 = points[i], p2 = points[i+1];
-        if (player.x >= p1.x && player.x <= p2.x) {
-            let t = (player.x - p1.x) / (p2.x - p1.x);
-            let groundY = p1.y + t * (p2.y - p1.y);
-            
-            if (player.y >= groundY - 15) {
-                player.y = groundY - 15;
-                player.setVelocityY(0);
-                let angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-                player.setRotation(angle);
-                onGround = true;
-            }
-        }
-    }
-
-    // Смерть от падения или пил
-    if (!onGround && (player.angle > 160 || player.angle < -160)) checkGameOver();
-    if (player.y > 800) checkGameOver();
-    this.physics.add.overlap(player, obstacles, checkGameOver);
-
-    // Генерация трассы
-    if (player.x > points[points.length-1].x - 1000) addSegment();
-    
-    // Удаление старых сегментов для оптимизации
-    if (points.length > 50) points.shift();
-
-    // Отрисовка
-    drawWorld.call(this);
-    
+    // Увеличение сложности
     score += 1;
-    document.getElementById('score').innerText = Math.floor(score/10);
+    gameSpeed += 0.1;
+    document.getElementById('ui').innerText = Math.floor(score / 10);
+    
+    // Ускоряем спавн
+    this.spawnTimer.delay = Math.max(600, 1500 - (score / 50));
 }
 
-function drawWorld() {
-    ground.clear();
-    const hue = (Math.floor(score/1000) * 60) % 360;
-    ground.lineStyle(8, Phaser.Display.Color.HSLToColor(hue/360, 1, 0.5).color);
-    ground.beginPath();
-    ground.moveTo(points[0].x, points[0].y);
-    points.forEach(p => ground.lineTo(p.x, p.y));
-    ground.strokePath();
-}
-
-function checkGameOver() {
-    let current = Math.floor(score/10);
-    if(current > bestScore) localStorage.setItem('riderBest', current);
-    location.reload();
+function hitObstacle() {
+    this.physics.pause();
+    player.setTint(0xff0000);
+    this.cameras.main.flash(500, 255, 0, 0);
+    
+    setTimeout(() => {
+        location.reload();
+    }, 1000);
 }
 </script>
 </body>
